@@ -1,10 +1,17 @@
 package Annotator::Gtk::View::AnnotationSetEditor;
 use v5.10;
 use Moose;
-use MooseX::Types::Moose qw( Bool Str );
+use MooseX::Types::Moose qw( Bool CodeRef Str );
 use Gtk2 '-init';
 use constant TRUE => 1;
 use constant FALSE => 0;
+use Devel::Dwarn;
+
+has 'on_finished' => (
+    is => 'rw',
+    isa => CodeRef,
+    default => sub { sub {} },
+);
 
 has 'window_title' => (
     is => 'rw',
@@ -20,10 +27,9 @@ has 'window' => (
 sub _build_window {
     my $self = shift;
     my $window = Gtk2::Dialog->new;
-    $window->add_button( 'gtk-ok', 0 );
+    $window->add_button( 'gtk-apply', 'apply' );
     $window->set_title ( $self->window_title );
     $window->set_border_width(0);
-    $window->signal_connect( destroy => sub { Gtk2->main_quit; } );
     return $window;
 }
 
@@ -34,17 +40,8 @@ has 'annotations_list_store' => (
 );
 
 sub _build_annotations_list_store {
-    my $self = shift;
-    my $store = Gtk2::ListStore->new( qw( Glib::String Glib::String Glib::Boolean ) );
-    my $iter = $store->append;
-    return $store;
+    Gtk2::ListStore->new( qw( Glib::String Glib::String Glib::Boolean ) );
 }
-
-has '_is_editing' => (
-    is => 'rw',
-    isa => Bool,
-    default => 0,
-);
 
 has 'annotations_list_view' => (
     is => 'ro',
@@ -84,37 +81,48 @@ sub _build_annotations_list_view {
     $tag_column->add_attribute( $tag_renderer, active => 2 );
     $view->append_column( $tag_column );
 
-    $view->signal_connect( 'key-release-event' => sub {
-        my ( $view, $event ) = @_;
-        my ( $path, $column ) = $view->get_cursor;
-        return unless ( $path->to_string + 1 ) == $self->annotations_list_store->iter_n_children;
-        
-        say $event->keyval;
-    } );
-
     return $view;
 }
 
 sub _on_field_edited {
     my ( $self, $renderer, $path, $new_text, $column ) = @_;
-    warn "Finished editing column $column for path " . $path . ", new text is: $new_text\n";
     my $store = $self->annotations_list_store;
     my $iter = $store->get_iter_from_string( $path );
     $store->set( $iter, $column => $new_text );
     my $view = $self->annotations_list_view;
-    my $next_path;
-    $next_path = Gtk2::TreePath->new( $path );
-    if ( $column == 2 ) {
-        say $store->iter_n_children;
-        if ( $store->iter_n_children == $path + 1) {
-            $store->append;
-        }
-        $next_path->next;
-    }
-    warn "next path is: " . $next_path->to_string . "\n";
     my $next_column = $view->get_column( ( $column + 1 ) % 3 );
-    $view->set_cursor( $next_path, $next_column, $column != 1 );
+    $view->set_cursor( Gtk2::TreePath->new( $path ), $next_column, $column != 1 );
     $view->grab_focus;
+}
+
+has '_add_annotation_button' => (
+    is => 'ro',
+    isa => 'Gtk2::Button',
+    lazy_build => 1,
+);
+
+sub _build__add_annotation_button {
+    Gtk2::Button->new_from_stock( 'gtk-add' );
+}
+
+has 'name_field' => (
+    is => 'ro',
+    isa => 'Gtk2::Entry',
+    lazy_build => 1,
+);
+
+sub _build_name_field {
+    Gtk2::Entry->new
+}
+
+has 'description_field' => (
+    is => 'ro',
+    isa => 'Gtk2::TextView',
+    lazy_build => 1,
+);
+
+sub _build_description_field {
+    Gtk2::TextView->new;
 }
 
 sub setup {
@@ -123,29 +131,39 @@ sub setup {
     $table->set_row_spacings( 6 );
     $table->set_col_spacings( 6 );
     $table->attach( Gtk2::Label->new( 'Name:' ), 0, 1, 0, 1, [], [], 10, 0 );
-    $table->attach( Gtk2::Entry->new, 1, 2, 0, 1, [ 'expand', 'fill', ], [], 10, 5 );
+    $table->attach( $self->name_field, 1, 2, 0, 1, [ 'expand', 'fill', ], [], 10, 5 );
 
     $table->attach( Gtk2::Label->new( 'Description:' ), 0, 1, 1, 2, [], [], 10, 0 );
-    $table->attach( wrap_in_scrolled_window( Gtk2::TextView->new ), 1, 2, 1, 2, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );
+    $table->attach( _wrap_in_scrolled_window( $self->description_field ), 1, 2, 1, 2, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );
     
     $table->attach( Gtk2::HSeparator->new, 0, 2, 2, 3, [ 'fill' ], [ 'fill' ], 10, 10 );
     #$table->attach( Gtk2::Label->new( 'Annotations:' ), 0, 1, 2, 3, [], [], 10, 0 );
-    $table->attach( wrap_in_scrolled_window( $self->annotations_list_view ), 0, 2, 3, 4, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );
+    $table->attach( _wrap_in_scrolled_window( $self->annotations_list_view ), 0, 2, 3, 4, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );
 
     $self->window->get_content_area->pack_start( $table, TRUE, TRUE, 0 );
     my $hbox = Gtk2::HBox->new;
-    $hbox->pack_end( Gtk2::Button->new_from_stock( 'gtk-add' ), FALSE, FALSE, 10 );
+    $hbox->pack_end( $self->_add_annotation_button, FALSE, FALSE, 10 );
     $self->window->get_content_area->pack_start( $hbox, FALSE, FALSE, 10 );
 
+    $self->_add_annotation_button->signal_connect( clicked => sub {
+        my ( $button ) = @_;
+        my $store = $self->annotations_list_store;
+        my $iter = $store->append;
+        $self->annotations_list_view->set_cursor( $store->get_path( $iter ) );
+        $self->annotations_list_view->grab_focus;
+    } );
+
+    $self->window->signal_connect( response => sub {
+        $self->_on_window_close( @_ );
+    } );
 }
 
 sub run {
     my $self = shift;
     $self->window->show_all;
-    Gtk2->main;
 }
 
-sub wrap_in_scrolled_window {
+sub _wrap_in_scrolled_window {
     my $widget = shift;
     my $sw = Gtk2::ScrolledWindow->new (undef, undef);
     $sw->set_policy( 'automatic', 'automatic' );
@@ -154,6 +172,32 @@ sub wrap_in_scrolled_window {
     return $sw;
 }
 
-my $annotationset_window = __PACKAGE__->new;
+sub get_data {
+    my $self = shift;
+    my @annotations;
+    my $store = $self->annotations_list_store;
+    my $iter = $store->get_iter_first;
+    while ( $iter ) {
+        my ( $name, $values, $is_tag ) = $store->get( $iter, 0, 1, 2 );
+        push @annotations, { name => $name, values => $values, tag => $is_tag };
+        $iter = $store->iter_next( $iter );
+    }
+    my $description_buffer = $self->description_field->get_buffer;
+    return {
+        name => $self->name_field->get_text,
+        description => $description_buffer->get_text( $description_buffer->get_start_iter, $description_buffer->get_end_iter, FALSE ),
+        annotations => \@annotations,
+    };
+}
+
+sub _on_window_close {
+    my ( $self, $window, $response ) = @_;
+    my $data = $response eq 'apply' ? $self->get_data : undef;
+    $self->on_finished->( $data );
+    $window->hide;
+}
+
+my $annotationset_window = __PACKAGE__->new( on_finished => sub { Dwarn @_; Gtk2->main_quit } );
 $annotationset_window->setup;
 $annotationset_window->run;
+Gtk2->main;
