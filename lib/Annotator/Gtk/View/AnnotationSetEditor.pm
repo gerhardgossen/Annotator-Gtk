@@ -196,8 +196,3 @@ sub _on_window_close {
     $self->on_finished->( $data );
     $window->hide;
 }
-
-my $annotationset_window = __PACKAGE__->new( on_finished => sub { Dwarn @_; Gtk2->main_quit } );
-$annotationset_window->setup;
-$annotationset_window->run;
-Gtk2->main;
