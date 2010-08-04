@@ -6,6 +6,7 @@ use utf8;
 use Gtk2 '-init';
 use Moose;
 use MooseX::Types::Moose qw( ArrayRef CodeRef HashRef Str );
+use Annotator::Gtk::View::AnnotationSetList;
 
 use constant TRUE  => 1;
 use constant FALSE => 0;
@@ -376,16 +377,36 @@ sub _build_annotation_list {
     return Gtk2::TreeView->new( $store );
 }
 
+has 'model' => (
+    is => 'rw',
+    isa => 'Annotator::Schema',
+    required => 1,
+);
+
 has [ 'load_annotationset_button', 'add_annotationset_button' ] => (
     is => 'ro',
     lazy_build => 1,
 );
 
 sub _build_load_annotationset_button {
+    my $self = shift;
 
     my $load_button = Gtk2::Button->new( 'Load set' );
     $load_button->set_image( Gtk2::Image->new_from_stock( 'gtk-open', 'button' ) );
+    $load_button->signal_connect( clicked => sub {
+        my $lister = Annotator::Gtk::View::AnnotationSetList->new(
+            on_load_set => sub { $self->load_annotation_set( @_ ); },
+            annotation_sets => $self->model->resultset('AnnotationSet')->search_rs,
+        );
+        $lister->run;
+    } );
     return $load_button;
+}
+
+sub load_annotation_set {
+    my ( $self, $set_id ) = @_;
+    return unless $set_id;
+    $self->push_status( "Loading set $set_id" );
 }
 
 sub _build_add_annotationset_button {
