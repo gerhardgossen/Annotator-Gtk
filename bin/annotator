@@ -13,6 +13,10 @@ my $view = Annotator::Gtk::View->new(
     model => $model,
 );
 
-my $controller = Annotator::Gtk::Controller->new( view => $view, model => $model )->run;
+my $controller = Annotator::Gtk::Controller->new( view => $view, model => $model );
+
+$view->controller( $controller );
+
+$controller->run;
 
 1;
