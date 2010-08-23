@@ -27,6 +27,7 @@ has 'window' => (
 sub _build_window {
     my $self = shift;
     my $window = Gtk2::Dialog->new;
+    $window->add_button( 'gtk-cancel', 'cancel' );
     $window->add_button( 'gtk-apply', 'apply' );
     $window->set_title ( $self->window_title );
     $window->set_border_width(0);
@@ -160,6 +161,7 @@ sub setup {
 
 sub run {
     my $self = shift;
+    $self->setup;
     $self->window->show_all;
 }
 
@@ -179,7 +181,7 @@ sub get_data {
     my $iter = $store->get_iter_first;
     while ( $iter ) {
         my ( $name, $values, $is_tag ) = $store->get( $iter, 0, 1, 2 );
-        push @annotations, { name => $name, values => $values, tag => $is_tag };
+        push @annotations, { name => $name, values => $values, is_tag => $is_tag };
         $iter = $store->iter_next( $iter );
     }
     my $description_buffer = $self->description_field->get_buffer;
@@ -196,3 +198,5 @@ sub _on_window_close {
     $self->on_finished->( $data );
     $window->hide;
 }
+
+1;

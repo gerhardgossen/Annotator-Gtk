@@ -18,6 +18,10 @@ has 'model' => (
     required => 1,
 );
 
+has 'current_user' => (
+    is => 'rw',
+);
+
 has '_finished_setup' => (
     is => 'rw',
     isa => Bool,
@@ -46,12 +50,32 @@ sub setup {
     } );
 
     $self->_finished_setup(1);
+
+    $self->current_user( $self->model->resultset('Annotator')->search( name => 'gerhard' )->single ); # FIXME
 }
 
 sub run {
     my $self = shift;
     $self->setup;
     $self->view->show;
+}
+
+sub create_annotation_set {
+    my ( $self, $set_data ) = @_;
+    my $set = $set_data->{id}
+        ? $self->current_user->find_related( 'annotationsets', { annotationset_id => $set_data->{id} } )
+        : $self->current_user->new_related( 'annotationsets', {} );
+    $set->set_columns( { name => $set_data->{name}, description => $set_data->{description} } );
+    $set->insert_or_update;
+
+    foreach my $annotation_data ( @{ $set_data->{annotations} } ) {
+        my $annotation = $annotation_data->{id}
+            ? $set->find_related( 'annotation_types', { annotationtype_id => $annotation_data->{id} } )
+            : $set->new_related(  'annotation_types', {} );
+        $annotation->set_columns( $annotation_data );
+        $annotation->insert_or_update;
+    }
+    return $set->annotationset_id;
 }
 
 1;

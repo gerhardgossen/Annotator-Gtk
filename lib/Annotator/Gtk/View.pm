@@ -6,12 +6,18 @@ use utf8;
 use Gtk2 '-init';
 use Moose;
 use MooseX::Types::Moose qw( ArrayRef CodeRef HashRef Str );
+use Annotator::Gtk::View::AnnotationSetEditor;
 use Annotator::Gtk::View::AnnotationSetList;
 
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
 use namespace::autoclean;
+
+has 'controller' => (
+    is => 'rw',
+    isa => 'Annotator::Gtk::Controller',
+);
 
 has 'appname' => (
     is => 'ro',
@@ -202,22 +208,16 @@ has 'on_messageview_click' => (
 
 has 'message_tags' => (
     is => 'ro',
-    isa => ArrayRef[ 'Gtk2::TextTag' ],
-    lazy_build => 1,
+    isa => HashRef[ 'Gtk2::TextTag' ],
+    default => sub { {} },
 );
 
-sub _build_message_tags {
-    my $self = shift;
-    my $buffer = $self->message_view->get_buffer;
-    my @colors = map {
-        sprintf '%X%X%X', map { int(rand(128) + 127 ) } 0..2;
-    } 1..10;
-    return [ map {
-        $buffer->create_tag( undef, 'background', "#$_" )
-    } @colors ];
+sub _random_color {
+        sprintf '#%X%X%X', map { int(rand(128) + 127 ) } 0..2;
 }
-
-sub get_random_tag {
+sub _create_new_annotation_tag {
+    my ( $self, $name ) = @_;
+    $self->message_view->get_buffer->create_tag( $name, 'background', _random_color );
 }
 
 sub highlight_selection {
@@ -364,6 +364,10 @@ sub load_message {
     $self->push_status( "Loaded message '$message_id'." );
 }
 
+use constant AL_NAME  => 0;
+use constant AL_ID    => 1;
+use constant AL_COLOR => 2;
+
 has 'annotation_list' => (
     is => 'ro',
     lazy_build => 1,
@@ -371,10 +375,19 @@ has 'annotation_list' => (
 
 sub _build_annotation_list {
     my $self = shift;
+    my $store = Gtk2::TreeStore->new( qw/ Glib::String Glib::UInt Glib::String / );
+    my $view = Gtk2::TreeView->new( $store );
+    #$view->set_level_indentation( -16 );
 
-    my $store = Gtk2::TreeStore->new( 'Glib::String' );
-    #$store->insert( 
-    return Gtk2::TreeView->new( $store );
+    my $name_column = Gtk2::TreeViewColumn->new;
+    my $name_renderer = Gtk2::CellRendererText->new;
+    $name_column->pack_start( $name_renderer, TRUE );
+    $name_column->add_attribute( $name_renderer, text => AL_NAME);
+    $name_column->add_attribute( $name_renderer, background => AL_COLOR );
+
+    $view->append_column( $name_column );
+
+    return $view;
 }
 
 has 'model' => (
@@ -407,13 +420,54 @@ sub load_annotation_set {
     my ( $self, $set_id ) = @_;
     return unless $set_id;
     $self->push_status( "Loading set $set_id" );
+    my $set = $self->model->resultset('AnnotationSet')->find( $set_id );
+    unless ( $set ) {
+        die "There is no annotation set with id '$set_id'";
+    }
+    my $view = $self->annotation_list;
+    my $store = $view->get_model;
+    my $iter = $store->append( undef );
+    $store->set( $iter, 0 => $set->name );
+    my $types = $set->annotation_types;
+    while ( my $type = $types->next ) {
+        my $fullname = $set->name . '::' . $type->name;
+        my $tag = $self->_create_new_annotation_tag( $fullname );
+        $self->message_tags->{ $fullname } = $tag;
+        my $color = $tag->get( 'background-gdk' )->to_string;
+        my $child_iter = $store->append( $iter );
+        $store->set( $child_iter,
+            AL_NAME  , $type->name,
+            AL_ID    , $type->annotationtype_id,
+            AL_COLOR , $color
+        );
+        my @values = split /\s*\|\s*/, $type->values;
+        foreach my $value ( @values ) {
+            my $value_iter = $store->append( $child_iter );
+            $store->set( $value_iter, AL_NAME, $value );
+        }
+    }
+    $self->annotation_list->expand_to_path( $store->get_path( $iter ) );
 }
 
 sub _build_add_annotationset_button {
+    my $self = shift;
     my $add_button = Gtk2::Button->new( 'Create set' );
     $add_button->set_image( Gtk2::Image->new_from_stock( 'gtk-add', 'button' ) );
+    $add_button->signal_connect( clicked => sub {
+        my $creator = Annotator::Gtk::View::AnnotationSetEditor->new(
+            on_finished => sub { $self->_created_annotation_set( @_ ) },
+        );
+        $creator->run;
+    } );
 
     return $add_button;
+}
+
+sub _created_annotation_set {
+    my ( $self, $set_data ) = @_;
+    return unless $set_data;
+    my $set_id = $self->controller->create_annotation_set( $set_data );
+    $self->load_annotation_set( $set_id );
 }
 
 has 'on_folder_selected' => (
