@@ -2,15 +2,21 @@ use strict;
 use warnings;
 package Annotator::Gtk::View;
 
+use feature 'say', 'switch';
+
 use utf8;
 use Gtk2 '-init';
 use Moose;
-use MooseX::Types::Moose qw( ArrayRef CodeRef HashRef Str );
+use MooseX::Types::Moose qw( ArrayRef CodeRef HashRef Int Str );
 use Annotator::Gtk::View::AnnotationSetEditor;
 use Annotator::Gtk::View::AnnotationSetList;
 
 use constant TRUE  => 1;
 use constant FALSE => 0;
+
+use constant AL_NAME  => 0;
+use constant AL_ID    => 1;
+use constant AL_COLOR => 2;
 
 use namespace::autoclean;
 
@@ -115,15 +121,111 @@ has 'overlay' => (
     lazy_build => 1,
 );
 
+has _overlay_rows => (
+    traits => [ 'Counter' ],
+    is => 'rw',
+    isa => Int,
+    default => -1,
+    handles => {
+        _next_overlay_row => 'inc',
+    },
+);
+
 sub _build_overlay {
+    my $self = shift;
     my $overlay = Gtk2::Window->new( 'popup' );
-    $overlay->resize( 100, 50 );
+    my $vbox = Gtk2::VBox->new;
+    $overlay->add( $vbox );
+    my $layout = Gtk2::Table->new( 1, 3, FALSE );
+    $layout->set_name( 'annotations_container' );
+    $vbox->pack_start( $layout, FALSE, TRUE, 0 );
+    $self->_add_overlay_annotation_row( $layout, $self->_next_overlay_row );
+
+    my $hb_wrapper = Gtk2::HBox->new;
+    my $add_row = Gtk2::Button->new_from_stock( 'gtk-add' );
+    $add_row->signal_connect( clicked => sub {
+        $self->_add_overlay_annotation_row( $layout, $self->_next_overlay_row );
+    } );
+    $hb_wrapper->pack_start( $add_row, FALSE, FALSE, 6 );
+
     my $hide_overlay = Gtk2::Button->new("Hide");
-    $hide_overlay->signal_connect( clicked => sub { $overlay->hide } );
-    $overlay->add( $hide_overlay );
-    $hide_overlay->show_all;
+    $hide_overlay->signal_connect( clicked => sub { $self->hide_overlay } );
+    $hb_wrapper->pack_end( $hide_overlay, FALSE, FALSE, 6 );
+    $vbox->pack_end( $hb_wrapper, FALSE, FALSE, 0 );
+    $vbox->show_all;
     return $overlay;
-# TODO
+}
+
+sub _add_overlay_annotation_row {
+    my ( $self, $layout, $row ) = @_;
+
+    $layout->resize( $row + 1, 3 );
+    my $opts = [ qw/ expand shrink / ];
+    my $padding = 6;
+
+    my $annotation_box = Gtk2::ComboBox->new_with_model( $self->annotations_only_model );
+    $annotation_box->set_name( "annotation_$row" );
+    $annotation_box->set_size_request( 80, -1 );
+
+    my $ab_renderer = Gtk2::CellRendererText->new;
+    $annotation_box->pack_start( $ab_renderer, TRUE );
+    $annotation_box->add_attribute( $ab_renderer, 'text', 0 );
+
+    my $value_box = Gtk2::ComboBox->new;
+    $value_box->set_name( "value_$row" );
+    $value_box->set_size_request( 80, -1 );
+
+    my $val_renderer = Gtk2::CellRendererText->new;
+    $value_box->pack_start( $val_renderer, TRUE );
+    $value_box->add_attribute( $val_renderer, text => 0 );
+
+    $annotation_box->signal_connect( 'changed', sub {
+        my $box = shift;
+        my $active_iter = $box->get_active_iter;
+        if ( $active_iter ) {
+            my $path = $self->annotations_only_model->get_path( $active_iter );
+            $value_box->set_model( Gtk2::TreeModelFilter->new( $self->annotation_model, $path ) );
+        }
+    } );
+
+    my $remove = Gtk2::Button->new;
+    $remove->set_image( Gtk2::Image->new_from_stock( 'gtk-remove', 'button' ) );
+    $remove->set_name( "remove_$row" );
+    $remove->signal_connect( clicked => sub { $self->_remove_overlay_annotation_row( $row ) } );
+
+    $layout->attach( $annotation_box, 0, 1, $row, $row + 1, $opts, $opts, $padding, $padding );
+    $layout->attach( $value_box, 1, 2, $row, $row + 1, $opts, $opts, $padding, $padding );
+    $layout->attach( $remove, 2, 3, $row, $row + 1, $opts, $opts, $padding, $padding );
+
+    $layout->show_all;
+}
+
+sub _remove_overlay_annotation_row {
+    my ( $self, $row ) = @_;
+    my $table = $self->_get_overlay_table;
+    my @row_elements = $table->get_children;
+    return if $row > scalar( @row_elements ) / $table->get( 'n-columns' );
+    foreach my $widget ( @row_elements ) {
+        my @opts = map { $table->child_get( $widget, $_ ) } ( 
+            "left-attach", "right-attach",
+            "top-attach", "bottom-attach",
+            "x-options", "y-options",
+            "x-padding", "y-padding"
+        );
+        my $current_row = $opts[2];
+        if ( $current_row == $row ) {
+            $widget->destroy;
+        } elsif ( $current_row > $row ) {
+            $opts[2]--;
+            $opts[3]--;
+            $table->remove( $widget );
+            $table->attach( $widget, @opts );
+        }
+    }
+    $table->resize( $table->get( 'n-rows' ) - 1, $table->get( 'n-columns' ) );
+    $table->show_all;
+
+    $self->_overlay_rows( $self->_overlay_rows - 1);
 }
 
 sub show_overlay_at_pos {
@@ -133,9 +235,75 @@ sub show_overlay_at_pos {
     $overlay->move( $x, $y );
 }
 
-sub hide_overlay {
-    shift->overlay->hide;
+sub _get_overlay_table {
+    my $self = shift;
+    my $container = ( ( $self->overlay->get_children )[0]->get_children )[0];
+    unless ( $container->get_name eq 'annotations_container' ) {
+        die 'Widget hierarchy is wrong, expected annotations_container';
+    }
+    return $container;
 }
+sub hide_overlay {
+    my $self = shift;
+    return unless $self->overlay->get( 'visible' );
+    my @annotations;
+    foreach my $child ( $self->_get_overlay_table->get_children ) {
+        my ( $type, $num, $value );
+        given ( $child->get_name ) {
+            when( /^value_(\d+)/ ) {
+                $type = 'value';
+                $num = $1;
+                $value = _get_combo_value( $child, AL_NAME );
+            }
+            when( /^annotation_(\d+)/ ) {
+                $type = 'annotation';
+                $num = $1;
+                $value = _get_combo_value( $child, AL_NAME );
+            }
+        }
+        if ( $type ) {
+            $annotations[ $num ]->{ $type } = $value;
+        }
+    }
+    Dwarn( \@annotations );
+    foreach my $annotation ( @annotations ) {
+        next unless $annotation->{annotation};
+        my $tag = $self->message_tags->{ $annotation->{annotation} };
+        $self->highlight_selection( $tag ) if $tag;
+    }
+    $self->overlay->hide;
+    $self->reset_overlay;
+}
+
+sub reset_overlay {
+    my $self = shift;
+    if ( $self->_overlay_rows < 0 ) {
+       $self->_add_overlay_annotation_row( $self->_next_overlay_row );
+    } else {
+        while ( $self->_overlay_rows > 0 ) {
+            $self->_remove_overlay_annotation_row( $self->_overlay_rows );
+        }
+        my $table = $self->_get_overlay_table;
+        foreach my $widget ( $table->get_children ) {
+            if ( $widget->isa( 'Gtk2::ComboBox' ) ) {
+                $widget->set_active( -1 );
+            }
+        }
+    }
+}
+
+sub _get_combo_value {
+    my ( $box, $col ) = @_;
+    my $iter = $box->get_active_iter;
+    return $iter ? $box->get_model->get( $iter, $col ) : undef;
+}
+
+
+has 'message_annotations' => (
+    is => 'rw',
+    isa => ArrayRef[HashRef],
+    default => sub { [] },
+);
 
 sub wrap_in_scrolled_window {
     my $widget = shift;
@@ -164,7 +332,7 @@ sub _build_message_view {
         my ( $widget, $e ) = @_;
 
         if ( ( $self->_get_buffer_selection )[0] ) {
-            $self->on_messageview_select->( $e );
+            $self->on_messageview_select->( $self, $e );
         }
         return FALSE; # propagate event
     } );
@@ -175,7 +343,7 @@ sub _build_message_view {
         return FALSE; # propagate event
     } );
 
-#    $buffer->signal_connect( 'mark-set' => sub {
+#    $buffer->signal_connect( 'mark-set' => sub { TODO
 #        my ( $buffer, $location, $mark ) = @_;
 #        my $name = $mark->get_name;
 #        return unless $name && ($name eq 'insert' || $name eq 'selection_bound');
@@ -197,8 +365,18 @@ Called with C<I<GdkEventButton> event>
 has 'on_messageview_select' => (
     is => 'rw',
     isa => CodeRef,
-    default => sub { sub { } },
+    lazy_build => 1,
 );
+
+use Devel::Dwarn;
+sub _build_on_messageview_select {
+    return sub {
+        my ( $self, $e ) = @_;
+        my $buffer = $self->message_view->get_buffer;
+        $self->show_overlay_at_pos( $e->x_root, $e->y_root );
+        return FALSE;
+    }
+}
 
 has 'on_messageview_click' => (
     is => 'rw',
@@ -227,7 +405,7 @@ sub highlight_selection {
 
     return unless $start_iter;
 
-    $self->message_view->buffer->apply_tag( $tag, $start_iter, $end_iter );
+    $self->message_view->get_buffer->apply_tag( $tag, $start_iter, $end_iter );
 }
 
 sub _get_buffer_selection {
@@ -364,20 +542,42 @@ sub load_message {
     $self->push_status( "Loaded message '$message_id'." );
 }
 
-use constant AL_NAME  => 0;
-use constant AL_ID    => 1;
-use constant AL_COLOR => 2;
+has 'annotation_model' => (
+    is => 'ro',
+    isa => 'Gtk2::TreeModel',
+    lazy_build => 1,
+);
+
+sub _build_annotation_model {
+    Gtk2::TreeStore->new( qw/ Glib::String Glib::UInt Glib::String / );
+}
 
 has 'annotation_list' => (
     is => 'ro',
     lazy_build => 1,
 );
 
+has 'annotations_only_model' => (
+    is => 'ro',
+    isa => 'Gtk2::TreeModel',
+    lazy_build => 1,
+);
+
+sub _build_annotations_only_model {
+    my $self = shift;
+    my $filtered_annotations = Gtk2::TreeModelFilter->new( $self->annotation_model );
+    $filtered_annotations->set_visible_func( sub {
+        my ( $store, $iter ) = @_;
+        my $path = $store->get_path( $iter )->to_string;
+        return ( $path =~ s/:/:/g ) < 2; # Only show first 2 levels (set+annotation)
+    } );
+    return $filtered_annotations;
+}
+
 sub _build_annotation_list {
     my $self = shift;
-    my $store = Gtk2::TreeStore->new( qw/ Glib::String Glib::UInt Glib::String / );
-    my $view = Gtk2::TreeView->new( $store );
-    #$view->set_level_indentation( -16 );
+    my $view = Gtk2::TreeView->new( $self->annotations_only_model );
+    $view->set_level_indentation( -16 );
 
     my $name_column = Gtk2::TreeViewColumn->new;
     my $name_renderer = Gtk2::CellRendererText->new;
@@ -424,8 +624,7 @@ sub load_annotation_set {
     unless ( $set ) {
         die "There is no annotation set with id '$set_id'";
     }
-    my $view = $self->annotation_list;
-    my $store = $view->get_model;
+    my $store = $self->annotation_model;
     my $iter = $store->append( undef );
     $store->set( $iter, 0 => $set->name );
     my $types = $set->annotation_types;
@@ -436,7 +635,7 @@ sub load_annotation_set {
         my $color = $tag->get( 'background-gdk' )->to_string;
         my $child_iter = $store->append( $iter );
         $store->set( $child_iter,
-            AL_NAME  , $type->name,
+            AL_NAME  , $fullname, #$type->name,
             AL_ID    , $type->annotationtype_id,
             AL_COLOR , $color
         );
