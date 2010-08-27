@@ -24,6 +24,7 @@ use constant {
     MA_NAME  => 2,
     MA_VALUE => 3,
     MA_ID    => 4,
+    MA_ANNID => 5,
 };
 
 use namespace::autoclean;
@@ -256,21 +257,17 @@ sub hide_overlay {
     return unless $self->overlay->get( 'visible' );
     my @annotations;
     foreach my $child ( $self->_get_overlay_table->get_children ) {
-        my ( $type, $num, $value );
         given ( $child->get_name ) {
             when( /^value_(\d+)/ ) {
-                $type = 'value';
-                $num = $1;
-                $value = _get_combo_value( $child, AL_NAME );
+                my $value = _get_combo_value( $child, AL_NAME );
+                $annotations[ $1 ]->{value} = $value;
             }
             when( /^annotation_(\d+)/ ) {
-                $type = 'annotation';
-                $num = $1;
-                $value = _get_combo_value( $child, AL_NAME );
+                my $name = _get_combo_value( $child, AL_NAME );
+                $annotations[ $1 ]->{annotation} = $name;
+                my $type_id = _get_combo_value( $child, AL_ID );
+                $annotations[ $1 ]->{annotationtype_id} = $type_id;
             }
-        }
-        if ( $type ) {
-            $annotations[ $num ]->{ $type } = $value;
         }
     }
     Dwarn( \@annotations );
@@ -278,8 +275,6 @@ sub hide_overlay {
     my ( $start, $end ) = map { $_->get_offset } $self->_get_buffer_selection;
     foreach my $annotation ( @annotations ) {
         next unless $annotation->{annotation};
-        my $tag = $self->message_tags->{ $annotation->{annotation} };
-        $self->highlight_selection( $tag ) if $tag;
         $self->add_message_annotation( %$annotation, start => $start, end => $end );
     }
 
@@ -289,6 +284,10 @@ sub hide_overlay {
 
 sub add_message_annotation {
     my ( $self, %args ) = @_;
+
+    my $tag = $self->message_tags->{ $args{annotation} };
+    $self->highlight_annotation( $tag, $args{start}, $args{end} ) if $tag;
+
     my $store = $self->message_annotations;
 
     my $iter = $store->append;
@@ -296,7 +295,9 @@ sub add_message_annotation {
         MA_NAME,  $args{annotation},
         MA_VALUE, $args{value},
         MA_START, $args{start},
-        MA_END,   $args{end}
+        MA_END,   $args{end},
+        MA_ID,    $args{annotation_id},
+        MA_ANNID, $args{annotationtype_id},
     );
 }
 
@@ -416,10 +417,13 @@ sub _create_new_annotation_tag {
     $self->message_view->get_buffer->create_tag( $name, 'background', _random_color );
 }
 
-sub highlight_selection {
-    my ( $self, $tag ) = @_;
+sub highlight_annotation {
+    my ( $self, $tag, $start, $end ) = @_;
 
-    my ( $start_iter, $end_iter ) = $self->_get_buffer_selection;
+    my $buffer = $self->message_view->get_buffer;
+    my $start_iter = $buffer->get_iter_at_offset( $start );
+    my $end_iter = $buffer->get_iter_at_offset( $end );
+    #my ( $start_iter, $end_iter ) = $self->_get_buffer_selection;
 
     return unless $start_iter;
 
@@ -553,11 +557,67 @@ has 'on_message_selected' => (
     default => sub { sub { } },
 );
 
-sub load_message {
-    my ( $self, $message_id, $message_text ) = @_;
+has 'current_message' => (
+    is => 'rw',
+    isa => 'Annotator::Schema::Result::Text',
+    trigger => \&_load_message,
+);
 
-    $self->message_view->get_buffer->set_text( $message_text );
-    $self->push_status( "Loaded message '$message_id'." );
+sub _load_message {
+    my ( $self, $message, $old_message ) = @_;
+
+    $self->_save_message_annotations( $old_message );
+
+    $self->message_view->get_buffer->set_text( $message->contents );
+    $self->_load_message_annotations( $message );
+    $self->push_status( "Loaded message '" . $message->text_id . "'." );
+}
+
+sub _save_message_annotations {
+    my ( $self, $message ) = @_;
+
+    my $annotation_model = $self->message_annotations;
+    
+    my $iter = $annotation_model->get_iter_first;
+    
+    my $rs = $self->model->resultset('Annotation');
+    while ( $iter ) {
+        my $annotation_id = $annotation_model->get( $iter, MA_ID );
+        $message->update_or_create_related( 'annotations', {
+            $annotation_id ? ( annotation_id => $annotation_id ) : (),
+            annotationtype_id => $annotation_model->get( $iter, MA_ANNID ),
+            start_pos         => $annotation_model->get( $iter, MA_START ),
+            end_pos           => $annotation_model->get( $iter, MA_END ),
+            value             => $annotation_model->get( $iter, MA_VALUE ),
+            creator_id        => 1, # TODO
+        });
+
+        $iter = $annotation_model->iter_next( $iter );
+    }
+# TODO
+}
+
+sub _load_message_annotations {
+    my ( $self, $message ) = @_;
+
+    my $annotation_model = $self->message_annotations;
+    $annotation_model->clear;
+
+    my $annotations = $message->annotations;
+    while ( my $annotation = $annotations->next ) {
+        my $type = $annotation->annotation_type;
+        my $name = $type->annotationset->name . '::' . $type->name;
+        my $iter = $annotation_model->append;
+        $annotation_model->set( $iter,
+            MA_NAME,  $name, # TODO: get name 
+            MA_VALUE, $annotation->value,
+            MA_START, $annotation->start_pos,
+            MA_END,   $annotation->end_pos,
+            MA_ID,    $annotation->annotation_id,
+            MA_ANNID, $annotation->annotationtype_id,
+        );
+    }
+# TODO
 }
 
 has 'annotation_model' => (
@@ -733,7 +793,7 @@ has 'message_annotations' => (
 );
 
 sub _build_message_annotations {
-    my $store = Gtk2::ListStore->new( qw/ Glib::Int Glib::Int Glib::String Glib::String Glib::String / );
+    my $store = Gtk2::ListStore->new( qw/ Glib::Int Glib::Int Glib::String Glib::String Glib::String Glib::Int / );
     $store->set_sort_column_id( MA_START, 'ascending' );
     return $store;
 }

@@ -45,8 +45,8 @@ sub setup {
     });
     $view->on_message_selected( sub {
         my $message_id = shift;
-        my $message_text = $self->model->resultset('Text')->find( $message_id )->contents;
-        $view->load_message( $message_id, $message_text );
+        my $message = $self->model->resultset('Text')->find( $message_id );
+        $view->current_message( $message );
     } );
 
     $self->_finished_setup(1);
