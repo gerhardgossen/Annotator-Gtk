@@ -96,7 +96,7 @@ sub _build_menubar {
     );
     my $ui_basic = "<ui>
       <menubar name='MenuBar'>
-        <menu action='FileMenu'> 
+        <menu action='FileMenu'>
          <menuitem action='Connect' position='top'/>
          <separator/>
          <menuitem action='Quit'/>
@@ -105,7 +105,7 @@ sub _build_menubar {
        <toolbar name='Toolbar'>
             <placeholder name='optical'>
                     <separator/>
-          </placeholder>   
+          </placeholder>
        </toolbar>
     </ui>";
 
@@ -113,7 +113,7 @@ sub _build_menubar {
 
     my $accelgroup = $uimanager->get_accel_group;
     $window->add_accel_group($accelgroup);
-            
+
     my $actions_basic = Gtk2::ActionGroup->new ("actions_basic");
     $actions_basic->add_actions (\@actions_plain, undef);
 
@@ -214,7 +214,7 @@ sub _remove_overlay_annotation_row {
     my @row_elements = $table->get_children;
     return if $row > scalar( @row_elements ) / $table->get( 'n-columns' );
     foreach my $widget ( @row_elements ) {
-        my @opts = map { $table->child_get( $widget, $_ ) } ( 
+        my @opts = map { $table->child_get( $widget, $_ ) } (
             "left-attach", "right-attach",
             "top-attach", "bottom-attach",
             "x-options", "y-options",
@@ -369,7 +369,7 @@ sub _build_message_view {
 #        my ( $start_iter, $end_iter ) = $self->_get_buffer_selection;
 #
 #        return unless $start_iter;
-#        $self->on_messageview_select(); 
+#        $self->on_messageview_select();
 #    });
     return $textview;
 }
@@ -532,7 +532,7 @@ sub _build_message_list {
     $date_column->pack_start( $date_renderer, FALSE );
     $date_column->add_attribute( $date_renderer, text => 1 );
     $view->append_column($date_column);
-    
+
     $view->set_size_request( -1, 100 );
 
     $view->signal_connect( 'row-activated' => sub { $self->_on_message_selected( @_ ) } );
@@ -715,7 +715,7 @@ sub populate_message_list {
     $model->clear;
     while ( my $message = $msg_cursor->next ) {
         my $iter = $model->append;
-        $model->set( 
+        $model->set(
             $iter,
             0 => $message->title,
             1 => $message->date->strftime('%F %T'),
