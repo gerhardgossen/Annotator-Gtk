@@ -18,6 +18,14 @@ use constant AL_NAME  => 0;
 use constant AL_ID    => 1;
 use constant AL_COLOR => 2;
 
+use constant {
+    MA_START => 0,
+    MA_END   => 1,
+    MA_NAME  => 2,
+    MA_VALUE => 3,
+    MA_ID    => 4,
+};
+
 use namespace::autoclean;
 
 has 'controller' => (
@@ -266,13 +274,30 @@ sub hide_overlay {
         }
     }
     Dwarn( \@annotations );
+    my $message_buffer = $self->message_view->get_buffer;
+    my ( $start, $end ) = map { $_->get_offset } $self->_get_buffer_selection;
     foreach my $annotation ( @annotations ) {
         next unless $annotation->{annotation};
         my $tag = $self->message_tags->{ $annotation->{annotation} };
         $self->highlight_selection( $tag ) if $tag;
+        $self->add_message_annotation( %$annotation, start => $start, end => $end );
     }
+
     $self->overlay->hide;
     $self->reset_overlay;
+}
+
+sub add_message_annotation {
+    my ( $self, %args ) = @_;
+    my $store = $self->message_annotations;
+
+    my $iter = $store->append;
+    $store->set( $iter,
+        MA_NAME,  $args{annotation},
+        MA_VALUE, $args{value},
+        MA_START, $args{start},
+        MA_END,   $args{end}
+    );
 }
 
 sub reset_overlay {
@@ -297,13 +322,6 @@ sub _get_combo_value {
     my $iter = $box->get_active_iter;
     return $iter ? $box->get_model->get( $iter, $col ) : undef;
 }
-
-
-has 'message_annotations' => (
-    is => 'rw',
-    isa => ArrayRef[HashRef],
-    default => sub { [] },
-);
 
 sub wrap_in_scrolled_window {
     my $widget = shift;
@@ -708,6 +726,50 @@ sub populate_message_list {
     $self->push_status( "Loading messages … Done." );
 }
 
+has 'message_annotations' => (
+    is => 'ro',
+    isa => 'Gtk2::TreeModel',
+    lazy_build => 1,
+);
+
+sub _build_message_annotations {
+    my $store = Gtk2::ListStore->new( qw/ Glib::Int Glib::Int Glib::String Glib::String Glib::String / );
+    $store->set_sort_column_id( MA_START, 'ascending' );
+    return $store;
+}
+
+has 'message_annotations_view' => (
+    is => 'ro',
+    isa => 'Gtk2::TreeView',
+    lazy_build => 1,
+);
+
+sub _build_message_annotations_view {
+    my $self = shift;
+    my $view = Gtk2::TreeView->new( $self->message_annotations );
+
+    my ( $start_renderer, $end_renderer, $name_renderer, $value_renderer )
+        = map { Gtk2::CellRendererText->new } 1..4;
+
+    my $name_column = Gtk2::TreeViewColumn->new_with_attributes( "Name", $name_renderer, text => MA_NAME );
+    $name_column->set_expand( TRUE );
+    $view->append_column( $name_column );
+
+    my $value_column = Gtk2::TreeViewColumn->new_with_attributes( "Value", $value_renderer, text => MA_VALUE );
+    $value_column->set_expand( TRUE );
+    $view->append_column( $value_column );
+
+    my $start_column = Gtk2::TreeViewColumn->new_with_attributes( "Start", $start_renderer, text => MA_START );
+    #$start_column->set_expand( TRUE );
+    $view->append_column( $start_column );
+
+    my $end_column = Gtk2::TreeViewColumn->new_with_attributes( "End", $end_renderer, text => MA_END );
+    #$end_column->set_expand( TRUE );
+    $view->append_column( $end_column );
+
+    return $view;
+}
+
 sub BUILD {
     my $self = shift;
 
@@ -726,6 +788,7 @@ sub BUILD {
 
     my $annotation_panel = Gtk2::VBox->new;
     $annotation_panel->pack_start( $self->annotation_list, TRUE, TRUE, 0 );
+    $annotation_panel->pack_end( $self->message_annotations_view, TRUE, TRUE, 0 );
     $annotation_panel->pack_end( $self->load_annotationset_button, FALSE, FALSE, 0 );
     $annotation_panel->pack_end( $self->add_annotationset_button, FALSE, FALSE, 0 );
     $rhs->pack2( $annotation_panel, TRUE, TRUE );
