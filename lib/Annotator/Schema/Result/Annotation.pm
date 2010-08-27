@@ -10,6 +10,7 @@ __PACKAGE__->add_columns(
         data_type => 'integer',
         is_nullable => 0,
         is_auto_increment => 1,
+        auto_nextval => 1,
     },
     text_id => {
         data_type => 'varchar',
@@ -26,11 +27,11 @@ __PACKAGE__->add_columns(
         is_nullable => 0,
         is_foreign_key,
     },
-    start => {
+    start_pos => {
         data_type => 'integer',
         is_nullable => 1,
     },
-    end => {
+    end_pos => {
         data_type => 'integer',
         is_nullable => 1,
     },
