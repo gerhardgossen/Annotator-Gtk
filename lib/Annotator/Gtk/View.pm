@@ -606,16 +606,21 @@ sub _load_message_annotations {
     my $annotations = $message->annotations;
     while ( my $annotation = $annotations->next ) {
         my $type = $annotation->annotation_type;
+
+        my $set = $type->annotationset->annotationset_id;
+        $self->load_annotation_set( $set );
+
         my $name = $type->annotationset->name . '::' . $type->name;
-        my $iter = $annotation_model->append;
-        $annotation_model->set( $iter,
-            MA_NAME,  $name, # TODO: get name 
-            MA_VALUE, $annotation->value,
-            MA_START, $annotation->start_pos,
-            MA_END,   $annotation->end_pos,
-            MA_ID,    $annotation->annotation_id,
-            MA_ANNID, $annotation->annotationtype_id,
+        my %args = (
+            annotation        => $name,
+            value             => $annotation->value,
+            start             => $annotation->start_pos,
+            end               => $annotation->end_pos,
+            annotation_id     => $annotation->annotation_id,
+            annotationtype_id => $annotation->annotationtype_id,
         );
+
+        $self->add_message_annotation( %args );
     }
 # TODO
 }
@@ -694,9 +699,16 @@ sub _build_load_annotationset_button {
     return $load_button;
 }
 
+has '_loaded_sets' => (
+    is => 'ro',
+    isa => HashRef,
+    default => sub { {} },
+);
+
 sub load_annotation_set {
     my ( $self, $set_id ) = @_;
     return unless $set_id;
+    return if $self->_loaded_sets->{ $set_id };
     $self->push_status( "Loading set $set_id" );
     my $set = $self->model->resultset('AnnotationSet')->find( $set_id );
     unless ( $set ) {
@@ -724,6 +736,7 @@ sub load_annotation_set {
         }
     }
     $self->annotation_list->expand_to_path( $store->get_path( $iter ) );
+    $self->_loaded_sets->{ $set_id }++;
 }
 
 sub _build_add_annotationset_button {
