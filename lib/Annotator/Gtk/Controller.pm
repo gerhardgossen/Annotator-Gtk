@@ -37,11 +37,11 @@ sub setup {
 #        $view->show_overlay_at_pos( $e->x_root, $e->y_root );
 #    });
     $view->on_messageview_click( sub {
-        $view->hide_overlay;
+        $view->overlay->hide;
     } );
     $view->on_folder_selected( sub {
         my $foldername = shift;
-        $view->populate_message_list( scalar $self->model->resultset('Document')->get_folder_messages( $foldername ) );
+        $view->message_list->current_messages( $self->model->resultset('Document')->get_folder_messages( $foldername ) );
     });
     $view->on_message_selected( sub {
         my $message_id = shift;

@@ -136,7 +136,7 @@ sub setup {
 
     $table->attach( Gtk2::Label->new( 'Description:' ), 0, 1, 1, 2, [], [], 10, 0 );
     $table->attach( _wrap_in_scrolled_window( $self->description_field ), 1, 2, 1, 2, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );
-    
+
     $table->attach( Gtk2::HSeparator->new, 0, 2, 2, 3, [ 'fill' ], [ 'fill' ], 10, 10 );
     #$table->attach( Gtk2::Label->new( 'Annotations:' ), 0, 1, 2, 3, [], [], 10, 0 );
     $table->attach( _wrap_in_scrolled_window( $self->annotations_list_view ), 0, 2, 3, 4, [ 'expand', 'fill' ], [ 'expand', 'fill' ], 10, 5 );

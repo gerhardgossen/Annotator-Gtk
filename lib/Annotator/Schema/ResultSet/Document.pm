@@ -11,7 +11,7 @@ has directories => (
 
 sub _build_directories {
     my $self = shift;
-    my $dirs = $self->search( undef, { 
+    my $dirs = $self->search( undef, {
         select => [ 'path', { count => 'path', -as => 'num_children' }  ],
         as => [ 'path', 'num_children' ],
         group_by => [ 'path' ],
@@ -26,7 +26,7 @@ sub _build_directories {
             if ( $namepart eq $nameparts[-1] ) {
                 $pos->{ $namepart }->{count} = $dir->get_column( 'num_children' );
             } else {
-                $pos->{ $namepart }->{children} = {} 
+                $pos->{ $namepart }->{children} = {}
                     unless defined $pos->{ $namepart }
                         && defined $pos->{ $namepart }->{children};
                 $pos->{ $namepart }->{count} += $dir->get_column( 'num_children' );
@@ -58,7 +58,7 @@ sub get_sub_directories { # TODO: bug assigns wrong count to top-level directori
 
 sub get_folder_messages {
     my ( $self, $path ) = @_;
-    return $self->search( { path => $path } );
+    return $self->search_rs( { path => $path } );
 }
 
 1;
