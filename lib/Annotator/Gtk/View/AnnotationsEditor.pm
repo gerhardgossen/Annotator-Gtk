@@ -2,7 +2,7 @@ package Annotator::Gtk::View::AnnotationsEditor;
 
 use Moose;
 use MooseX::NonMoose;
-use MooseX::Types::Moose qw( ArrayRef Int Maybe );
+use MooseX::Types::Moose qw( ArrayRef Bool Int Maybe );
 use Gtk2;
 
 use Annotator::Gtk::View::Constants qw( :bool :annotations :message_annotations );
@@ -15,10 +15,10 @@ sub BUILD {
     my $self = shift;
     my $vbox = Gtk2::VBox->new;
     $self->add( $vbox );
-    my $layout = Gtk2::Table->new( 1, 3, FALSE );
+    my $layout = Gtk2::Table->new( 0, 3, FALSE );
     $layout->set_name( 'annotations_container' );
     $vbox->pack_start( $layout, FALSE, TRUE, 0 );
-    $self->_add_annotation_row( $layout, $self->_next_row_id );
+    $self->_add_annotation_row;
 
     my $hb_wrapper = Gtk2::HBox->new;
     $hb_wrapper->pack_start( $self->_add_row_button, FALSE, FALSE, 6 );
@@ -37,7 +37,7 @@ has [qw/ start end /] => (
 
 has 'annotations' => (
     is => 'rw',
-    isa => ArrayRef[ 'Gtk2::TreeModelIter' ],
+    isa => ArrayRef[ 'Gtk2::TreeIter' ],
     traits => [ 'Array' ],
     handles => {
         remove_annotation => 'delete',
@@ -62,15 +62,25 @@ has message_annotations => (
     required => 1,
 );
 
-has _row_count => ( # TODO: replace by |$self->annotations|
-    traits => [ 'Counter' ],
+has '_notification_enabled' => (
     is => 'rw',
-    isa => Int,
-    default => -1,
-    handles => {
-        _next_row_id => 'inc',
-    },
+    isa => Bool,
+    default => 1,
 );
+
+sub _notify {
+    my ( $self, $event, @args ) = @_;
+    if ( $self->_notification_enabled ) {
+        $self->mutation_handler->$event( @args );
+    }
+}
+
+sub _row_count {
+    my $self = shift;
+    my $table = $self->_annotations_table;
+    my @children = $table->get_children;
+    return int( scalar( @children ) / $table->get( 'n-columns' ) );
+}
 
 has _add_row_button => (
     is => 'ro',
@@ -82,13 +92,15 @@ sub _build__add_row_button {
     my $self = shift;
     my $add_row = Gtk2::Button->new_from_stock( 'gtk-add' );
     $add_row->signal_connect( clicked => sub {
-        $self->_add_annotation_row( $self->_get_annotations_table, $self->_next_row_id );
+        $self->_add_annotation_row;
     } );
     $add_row
 }
 
 sub _add_annotation_row {
-    my ( $self, $layout, $row ) = @_;
+    my $self = shift;
+    my $layout = $self->_annotations_table;
+    my $row = $self->_row_count;
 
     $layout->resize( $row + 1, 3 );
     my $opts = [ qw/ expand shrink / ];
@@ -129,7 +141,7 @@ sub _add_annotation_row {
         my $value = $filtered_model->get_model->get( $value_iter, AL_NAME );
         my $iter = $self->annotations->[ $row ];
         if ( defined $iter ) {
-            $self->mutation_handler->annotation_changed(
+            $self->_notify( annotation_changed =>
                 $iter,
                 $self->message_annotations->model->get( $iter, MA_ID ),
                 $annotationtype_id,
@@ -138,7 +150,7 @@ sub _add_annotation_row {
                 $self->message_annotations->model->get( $iter, MA_END   ),
             );
         } else {
-            my $iter = $self->mutation_handler->annotation_added(
+            my $iter = $self->_notify( annotation_added =>
                 undef,
                 $annotationtype_id,
                 $value,
@@ -163,7 +175,7 @@ sub _add_annotation_row {
 
 sub _remove_annotation_row {
     my ( $self, $row ) = @_;
-    my $table = $self->_get_annotations_table;
+    my $table = $self->_annotations_table;
     my @row_elements = $table->get_children;
     return if $row > scalar( @row_elements ) / $table->get( 'n-columns' );
     foreach my $widget ( @row_elements ) {
@@ -183,16 +195,59 @@ sub _remove_annotation_row {
             $table->attach( $widget, @opts );
         }
     }
-    $self->_row_count( $self->_row_count - 1);
     if ( $table->get( 'n-rows' ) == 1 ) {
-        $self->_add_annotation_row( $self->_get_annotations_table, $self->_next_row_id );
+        $self->_add_annotation_row;
     } else {
         $table->resize( $table->get( 'n-rows' ) - 1, $table->get( 'n-columns' ) );
     }
     $table->show_all;
 
-    $self->mutation_handler->annotation_removed( $self->annotations->[ $row ] );
+    $self->_notify( annotation_removed => $self->annotations->[ $row ] );
     splice @{ $self->annotations }, $row, 1;
+}
+
+sub _get_widget_by_name {
+    my ( $parent, $name ) = @_;
+    foreach my $w ( $parent->get_children ) {
+        return $w if $w->get_name eq $name;
+    }
+    return undef;
+}
+
+sub _find_iter_for_value {
+    my ( $model, $col, $value, $iter ) = @_;
+
+    $iter //= $model->get_iter_first;
+
+    while ( $iter ) {
+        return $iter if $model->get( $iter, $col ) eq $value;
+        my $child_iter = $model->iter_children( $iter );
+        if ( $child_iter ) {
+            my $ret = _find_iter_for_value( $model, $col, $value, $child_iter );
+            return $ret if $ret;
+        }
+        $iter = $model->iter_next( $iter );
+    }
+    return undef;
+}
+
+sub set_annotation_type {
+    my ( $self, $row, $id ) = @_;
+    my $box = _get_widget_by_name( $self->_annotations_table, "annotation_$row" );
+    die "ComboBox in row $row was not found" unless $box;
+
+    my $iter = _find_iter_for_value( $box->get_model, AL_ID, $id );
+
+    $box->set_active_iter( $iter );
+}
+
+sub set_annotation_value {
+    my ( $self, $row, $value ) = @_;
+    my $box = _get_widget_by_name( $self->_annotations_table, "value_$row" );
+    die "ComboBox in row $row was not found" unless $box;
+
+    my $iter = _find_iter_for_value( $box->get_model, AL_NAME, $value );
+    $box->set_active_iter( $iter );
 }
 
 sub show {
@@ -204,6 +259,15 @@ sub show {
     # Only enable new annotations if selection is given
     $self->_add_row_button->set_sensitive( defined $self->start && defined $self->end );
 
+    $self->_notification_enabled( FALSE );
+    foreach my $idx ( 0 .. $#{ $self->annotations } ) {
+        my $iter = $self->annotations->[ $idx ];
+        $self->_add_annotation_row if $idx > 0;
+        $self->set_annotation_type ( $idx => $self->message_annotations->model->get( $iter, MA_ANNID ) );
+        $self->set_annotation_value( $idx => $self->message_annotations->model->get( $iter, MA_VALUE ) );
+    }
+    $self->_notification_enabled( TRUE );
+
     $self->next::method;
     $self->move( $args{x}, $args{y} );
 
@@ -211,19 +275,21 @@ sub show {
 
 sub reset {
     my $self = shift;
-    if ( $self->_row_count < 0 ) {
-       $self->_add_annotation_row( $self->_get_annotations_table, $self->_next_row_id );
+    $self->_notification_enabled( FALSE );
+    if ( $self->_row_count <= 0 ) {
+       $self->_add_annotation_row;
     } else {
-        while ( $self->_row_count > 0 ) {
-            $self->_remove_annotation_row( $self->_row_count );
+        while ( $self->_row_count > 1 ) {
+            $self->_remove_annotation_row( $self->_row_count - 1);
         }
-        my $table = $self->_get_annotations_table;
+        my $table = $self->_annotations_table;
         foreach my $widget ( $table->get_children ) {
             if ( $widget->isa( 'Gtk2::ComboBox' ) ) {
                 $widget->set_active( -1 );
             }
         }
     }
+    $self->_notification_enabled( TRUE );
 }
 
 sub hide {
@@ -240,7 +306,12 @@ sub _get_combo_value {
     return $iter ? $box->get_model->get( $iter, $col ) : undef;
 }
 
-sub _get_annotations_table {
+has '_annotations_table' => (
+    is => 'ro',
+    lazy_build => 1,
+);
+
+sub _build__annotations_table {
     my $self = shift;
     my $container = ( ( $self->get_children )[0]->get_children )[0];
     unless ( $container->get_name eq 'annotations_container' ) {

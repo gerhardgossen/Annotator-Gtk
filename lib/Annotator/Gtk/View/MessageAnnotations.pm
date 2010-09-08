@@ -57,7 +57,7 @@ sub load_message_annotations {
         my $set = $type->annotationset->annotationset_id;
         $self->annotation_sets->load_annotation_set( $set );
 
-        my $name = $self->annotation_sets->get_name_for_id( $annotation->annotationtype_id );
+        my $name = $self->annotation_sets->get_name_for_id( $annotation->annotation_type->annotationset_id );
         my $iter = $store->append;
         $store->set( $iter,
             MA_NAME()  => $name,
@@ -98,7 +98,7 @@ sub annotation_added {
 
 sub annotation_changed {
     my ( $self, $iter, $annotation_id, $annotationtype_id, $value, $start, $end ) = @_;
-    self->_notify_mutation( annotation_changed => $iter, $annotation_id, $annotationtype_id, $value, $start, $end );
+    $self->_notify_mutation( annotation_changed => $iter, $annotation_id, $annotationtype_id, $value, $start, $end );
     $self->model->set( $iter,
         MA_NAME,  $self->annotation_sets->get_name_for_id( $annotationtype_id ),
         MA_VALUE, $value,

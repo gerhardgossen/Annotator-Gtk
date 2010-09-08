@@ -174,13 +174,7 @@ sub _build_message_view {
             my $offset = $buffer->get_iter_at_mark( $insert_mark )->get_offset;
             my @annotations = $self->find_annotations_at_offset( $offset );
             if ( @annotations ) {
-                use Try::Tiny;
-                try {
-                $self->overlay->show( x => $e->x_root, y => $e->y_root, annotations => []#\@annotations
-                 );
-                } catch {
-                    die $_;
-                };
+                $self->overlay->show( x => $e->x_root, y => $e->y_root, annotations => \@annotations );
             }
         }
         return FALSE; # propagate event
@@ -206,14 +200,7 @@ sub find_annotations_at_offset {
     while ( $iter ) {
         my ( $start, $end ) = map { $annotation_model->get( $iter, $_ ) } ( MA_START, MA_END );
         if ( $start <= $offset && $offset <= $end ) {
-            my $annotation_id = $annotation_model->get( $iter, MA_ID );
-            push @annotations, {
-                $annotation_id ? ( annotation_id => $annotation_id ) : (),
-                annotationtype_id => $annotation_model->get( $iter, MA_ANNID ),
-                start             => $start,
-                end               => $end,
-                value             => $annotation_model->get( $iter, MA_VALUE ),
-            };
+            push @annotations, $iter;
         }
 
         $iter = $annotation_model->iter_next( $iter );
