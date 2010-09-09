@@ -235,7 +235,7 @@ has 'message_tags' => (
 
 sub get_name_for_id {
     my ( $self, $id ) = @_;
-    my $model = $self->set_list_store;
+    my $model = $self->annotation_model;
     my $name;
     $model->foreach( sub {
         my ( $model, $path, $iter ) = @_;

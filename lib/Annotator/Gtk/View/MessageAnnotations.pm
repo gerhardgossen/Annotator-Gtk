@@ -57,7 +57,7 @@ sub load_message_annotations {
         my $set = $type->annotationset->annotationset_id;
         $self->annotation_sets->load_annotation_set( $set );
 
-        my $name = $self->annotation_sets->get_name_for_id( $annotation->annotation_type->annotationset_id );
+        my $name = $self->annotation_sets->get_name_for_id( $annotation->annotationtype_id );
         my $iter = $store->append;
         $store->set( $iter,
             MA_NAME()  => $name,
