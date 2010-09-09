@@ -342,35 +342,9 @@ has 'current_message' => (
 sub _load_message {
     my ( $self, $message, $old_message ) = @_;
 
-    $self->_save_message_annotations( $old_message );
-
     $self->message_view->get_buffer->set_text( $message->contents );
     $self->message_annotations->load_message_annotations( $message );
     $self->push_status( "Loaded message '" . $message->text_id . "'." );
-}
-
-sub _save_message_annotations { # TODO: save changes immediately
-    my ( $self, $message ) = @_;
-
-    my $annotation_model = $self->message_annotations->model;
-
-    my $iter = $annotation_model->get_iter_first;
-
-    my $rs = $self->model->resultset('Annotation');
-    while ( $iter ) {
-        my $annotation_id = $annotation_model->get( $iter, MA_ID );
-        $message->update_or_create_related( 'annotations', {
-            $annotation_id ? ( annotation_id => $annotation_id ) : (),
-            annotationtype_id => $annotation_model->get( $iter, MA_ANNID ),
-            start_pos         => $annotation_model->get( $iter, MA_START ),
-            end_pos           => $annotation_model->get( $iter, MA_END ),
-            value             => $annotation_model->get( $iter, MA_VALUE ),
-            creator_id        => 1, # TODO
-        });
-
-        $iter = $annotation_model->iter_next( $iter );
-    }
-# TODO
 }
 
 has 'annotation_model' => (

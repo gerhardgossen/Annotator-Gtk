@@ -44,9 +44,15 @@ sub _notify_mutation {
     $self->_map_mutation_listeners( sub { $_->$mutation( @args ) } );
 }
 
+has _current_message => (
+    is => 'rw',
+    isa => 'Annotator::Schema::Result::Text',
+);
+
 sub load_message_annotations {
     my ( $self, $message ) = @_;
 
+    $self->_current_message( $message );
     my $store = $self->model;
     $store->clear;
 
@@ -91,6 +97,15 @@ sub annotation_added {
         MA_ID,    $annotation_id,
         MA_ANNID, $annotationtype_id,
     );
+    my $annotation = $self->_current_message->create_related( annotations => {
+        annotationtype_id => $annotationtype_id,
+        start_pos         => $start,
+        end_pos           => $end,
+        value             => $value,
+        creator_id        => 1, # TODO
+    });
+
+    $annotation_id = $annotation->annotation_id;
 
     $self->_notify_mutation( annotation_added => $annotation_id, $annotationtype_id, $value, $start, $end );
     return $iter;
@@ -107,11 +122,24 @@ sub annotation_changed {
         MA_ID,    $annotation_id,
         MA_ANNID, $annotationtype_id,
     );
+
+    my $annotation = $self->_current_message
+        ->find_related( annotations => {
+            annotation_id     => $annotation_id,
+        } )->update( {
+            annotationtype_id => $annotationtype_id,
+            start_pos         => $start,
+            end_pos           => $end,
+            value             => $value,
+        } );
 }
 
 sub annotation_removed {
     my ( $self, $iter ) = @_;
     $self->_notify_mutation( annotation_removed => $iter );
+    $self->_current_message->delete_related( annotations => {
+        annotation_id => $self->model->get( $iter, MA_ID )
+    } );
     $self->model->remove( $iter );
 }
 
