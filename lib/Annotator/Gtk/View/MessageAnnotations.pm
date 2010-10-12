@@ -84,6 +84,28 @@ sub load_message_annotations {
     }
 }
 
+has _popup => (
+    is => 'ro',
+    isa => 'Gtk2::Menu',
+    lazy_build => 1,
+);
+
+sub _build__popup {
+    my $self = shift;
+    my $menu = Gtk2::Menu->new;
+    my $delete_item = Gtk2::ImageMenuItem->new_from_stock( 'gtk-remove' );
+    $delete_item->signal_connect( activate => sub {
+        my $selection = $self->get_selection;
+        my $iter = $selection->get_selected;
+        $self->annotation_removed( $iter );
+        return TRUE;
+    } );
+
+
+    $menu->append( $delete_item );
+    $menu->show_all;
+    $menu
+}
 sub annotation_added {
     my ( $self, $annotation_id, $annotationtype_id, $value, $start, $end ) = @_;
 
@@ -143,6 +165,19 @@ sub annotation_removed {
     $self->model->remove( $iter );
 }
 
+sub _show_popup {
+    my ( $self, $event ) = @_;
+    $self->_popup->popup(
+        undef,
+        undef,
+        undef,
+        undef,
+        $event
+            ? ( $event->button, $event->time )
+            : ( 0, Gtk2->get_current_event_time )
+    );
+}
+
 sub BUILD {
     my $self = shift;
 
@@ -166,6 +201,29 @@ sub BUILD {
     my $end_column = Gtk2::TreeViewColumn->new_with_attributes( "End", $end_renderer, text => MA_END );
     #$end_column->set_expand( TRUE );
     $self->append_column( $end_column );
+
+    $self->signal_connect( button_press_event => sub {
+        my ( $treeview, $event ) = @_;
+        if ( $event->type eq 'button-press' and $event->button == 3 ) {
+
+            my $selection = $treeview->get_selection;
+            if ( $selection->count_selected_rows <= 1 ) {
+                my ($path) = $treeview->get_path_at_pos( $event->x, $event->y );
+                $selection->unselect_all;
+                $selection->select_path( $path );
+            }
+            $self->_show_popup( $event );
+
+            return TRUE;
+        }
+        return FALSE;
+    });
+
+    $self->signal_connect( popup_menu => sub {
+        my ( $treeview, $data ) = @_;
+        $self->_show_popup( undef );
+        return TRUE;
+    } );
     return $self;
 }
 
