@@ -18,7 +18,6 @@ sub _build_directories {
         order_by => [ 'path' ],
     });
     my $tree = {};
-    use Devel::Dwarn;
     while ( my $dir = $dirs->next ) {
         my @nameparts = split qr|/|, $dir->path;
         my $pos = $tree;

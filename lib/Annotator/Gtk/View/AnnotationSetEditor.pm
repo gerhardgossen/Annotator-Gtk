@@ -5,7 +5,6 @@ use MooseX::Types::Moose qw( Bool CodeRef Str );
 use Gtk2 '-init';
 use constant TRUE => 1;
 use constant FALSE => 0;
-use Devel::Dwarn;
 
 has 'on_finished' => (
     is => 'rw',
