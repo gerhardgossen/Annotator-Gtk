@@ -354,7 +354,7 @@ has 'annotation_model' => (
 );
 
 sub _build_annotation_model {
-    Gtk2::TreeStore->new( qw/ Glib::String Glib::UInt Glib::String / );
+    Gtk2::TreeStore->new( qw/ Glib::String Glib::UInt Glib::String Glib::Boolean / );
 }
 
 has 'annotations_only_model' => (
@@ -402,6 +402,9 @@ sub _build_annotation_sets {
         },
         get_annotation_set  => sub {
             $self->model->resultset('AnnotationSet')->find( shift )
+        },
+        add_message_tag     => sub {
+            $self->message_annotations->annotation_added( undef, shift, undef, -1, -1 );
         },
     );
 }

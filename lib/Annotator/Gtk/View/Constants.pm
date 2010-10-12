@@ -11,6 +11,7 @@ use constant {
     AL_NAME  => 0,
     AL_ID    => 1,
     AL_COLOR => 2,
+    AL_IS_TAG => 3,
 };
 
 use constant {
@@ -27,7 +28,7 @@ our @EXPORT = ();
 our @EXPORT_OK = qw( );
 our %EXPORT_TAGS = (
     bool => [ qw( TRUE FALSE ) ],
-    annotations => [ qw( AL_NAME AL_ID AL_COLOR ) ],
+    annotations => [ qw( AL_NAME AL_ID AL_COLOR AL_IS_TAG ) ],
     message_annotations => [ qw( MA_START MA_END MA_NAME MA_VALUE MA_ID MA_ANNID ) ]
 );
 

@@ -30,7 +30,7 @@ has 'message_buffer' => (
     required => 1,
 );
 
-has [ 'get_annotation_set', 'get_annotation_sets' ] => (
+has [ 'get_annotation_set', 'get_annotation_sets', 'add_message_tag' ] => (
     is => 'ro',
     isa => CodeRef,
     required => 1,
@@ -160,7 +160,8 @@ sub load_annotation_set {
         $store->set( $child_iter,
             AL_NAME  , $fullname, #$type->name,
             AL_ID    , $type->annotationtype_id,
-            AL_COLOR , $color
+            AL_COLOR , $color,
+            AL_IS_TAG, $type->is_tag
         );
         my @values = split /\s*\|\s*/, $type->values;
         foreach my $value ( @values ) {
@@ -211,6 +212,15 @@ sub _build_annotation_list {
 
     $view->append_column( $name_column );
 
+
+    $view->signal_connect( row_activated => sub {
+        my ( $view, $path, $columns ) = @_;
+        my $model = $view->get_model;
+        my $iter = $model->get_iter( $path );
+        my $is_tag = $model->get( $iter, AL_IS_TAG );
+        return unless $is_tag;
+        $self->add_message_tag->( $model->get( $iter, AL_ID ) );
+    } );
     return $view;
 }
 
