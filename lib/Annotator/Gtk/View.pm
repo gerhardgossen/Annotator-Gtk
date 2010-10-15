@@ -342,7 +342,13 @@ has 'current_message' => (
 sub _load_message {
     my ( $self, $message, $old_message ) = @_;
 
-    $self->message_view->get_buffer->set_text( $message->contents );
+    my $message_view = $self->message_view;
+    $message_view->get_buffer->set_text( $message->contents );
+    $message_view->scroll_to_iter( # scroll to top
+        $message_view->get_buffer->get_start_iter,
+        0.0, TRUE, 0.0, 0.0
+    );
+
     $self->message_annotations->load_message_annotations( $message );
     $self->push_status( "Loaded message '" . $message->text_id . "'." );
 }
