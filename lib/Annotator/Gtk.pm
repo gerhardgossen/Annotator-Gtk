@@ -1,6 +1,5 @@
-#!/usr/bin/perl
+package Annotator::Gtk;
 
-use warnings;
-use strict;
+#ABSTRACT: Annotate emails from the Enron corpus using a Gtk UI
 
 1;
