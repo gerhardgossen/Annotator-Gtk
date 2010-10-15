@@ -339,8 +339,26 @@ has 'current_message' => (
     trigger => \&_load_message,
 );
 
+sub _get_recipient_names {
+    my ( $email, $field ) = @_;
+    my @addresses = Mail::Address->parse( $email->header( $field ) );
+    return map { $_->name || $_->user } @addresses;
+}
+
+sub _parse_recipients {
+    my ( $self, $message ) = @_;
+    use Email::Simple;
+    use Mail::Address;
+
+    my $email = Email::Simple->new( $message->metadata );
+    $self->_to_list->set_text( join ', ', _get_recipient_names( $email, "To" ) );
+    $self->_cc_list->set_text( join ', ', _get_recipient_names( $email, "Cc" ) );
+}
+
 sub _load_message {
     my ( $self, $message, $old_message ) = @_;
+
+    $self->_parse_recipients( $message );
 
     my $message_view = $self->message_view;
     $message_view->get_buffer->set_text( $message->contents );
@@ -433,6 +451,21 @@ sub _build_message_annotations {
     return $ma;
 }
 
+has [ '_to_list', '_cc_list' ] => (
+    is => 'ro',
+    isa => 'Gtk2::Label',
+    builder => '_build_address_label',
+    lazy => 1,
+);
+
+sub _build_address_label {
+    my $label = Gtk2::Label->new;
+    $label->set_alignment( 0.0, 0.5);
+    $label->set_width_chars( 80 );
+    $label->set_ellipsize( 'end' );
+    $label
+}
+
 sub BUILD {
     my $self = shift;
 
@@ -443,12 +476,23 @@ sub BUILD {
     my $vbox = Gtk2::VBox->new(FALSE, 0);
     $self->add($vbox);
 
+    my $addresses = Gtk2::Table->new( 2, 2, FALSE );
+    my $to_label = Gtk2::Label->new( "To:" );
+    $to_label->set_alignment( 0.0, 0.5 );
+    my $cc_label = Gtk2::Label->new( "CC:" );
+    $cc_label->set_alignment( 0.0, 0.5 );
+    $addresses->attach_defaults( $to_label, 0, 1, 0, 1 );
+    $addresses->attach( $self->_to_list, 1, 2, 0, 1, [ 'expand', 'fill' ], [], 5, 0 );
+    $addresses->attach_defaults( $cc_label, 0, 1, 1, 2 );
+    $addresses->attach( $self->_cc_list, 1, 2, 1, 2, [ 'expand', 'fill' ], [], 5, 0 );
+
     my $content_box = Gtk2::HPaned->new;
     $content_box->pack1( _wrap_in_scrolled_window( $self->foldertree ), FALSE, TRUE );
     my $rhs = Gtk2::HPaned->new;
     my $middle_panel = Gtk2::VBox->new;
     $rhs->pack1( $middle_panel, TRUE, TRUE );
     $middle_panel->pack_start( _wrap_in_scrolled_window( $self->message_list ), TRUE, TRUE, 0 );
+    $middle_panel->pack_start( $addresses, FALSE, FALSE, 0 );
     $middle_panel->pack_start( _wrap_in_scrolled_window( $self->message_view ), TRUE, TRUE, 0);
     $content_box->pack2( $rhs, TRUE, TRUE );
 
