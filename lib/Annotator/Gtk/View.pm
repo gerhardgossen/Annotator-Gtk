@@ -406,6 +406,9 @@ sub _build_annotation_sets {
         add_message_tag     => sub {
             $self->message_annotations->annotation_added( undef, shift, undef, -1, -1 );
         },
+        create_annotation_set => sub {
+            $self->controller->create_annotation_set( shift );
+        },
     );
 }
 

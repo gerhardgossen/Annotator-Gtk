@@ -30,7 +30,7 @@ has 'message_buffer' => (
     required => 1,
 );
 
-has [ 'get_annotation_set', 'get_annotation_sets', 'add_message_tag' ] => (
+has [ 'get_annotation_set', 'get_annotation_sets', 'add_message_tag', 'create_annotation_set' ] => (
     is => 'ro',
     isa => CodeRef,
     required => 1,
@@ -190,7 +190,7 @@ sub _build__add_annotationset_button {
 sub _created_annotation_set {
     my ( $self, $set_data ) = @_;
     return unless $set_data;
-    my $set_id = $self->controller->create_annotation_set( $set_data );
+    my $set_id = $self->create_annotation_set->( $set_data );
     $self->load_annotation_set( $set_id );
 }
 
