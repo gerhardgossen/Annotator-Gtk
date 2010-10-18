@@ -109,7 +109,7 @@ sub _show_load_window {
         if ( $response eq 'apply' ) {
             $self->load_annotation_set( $self->selected_set );
         }
-        $window->destroy;
+        $window->hide;
     } );
     $self->load_window->show_all;
 }
