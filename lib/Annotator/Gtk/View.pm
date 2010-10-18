@@ -324,6 +324,7 @@ sub _build_message_list {
     my $self = shift;
     return Annotator::Gtk::View::MessageList->new(
         on_message_selected => sub { $self->on_message_selected->( @_ ) },
+        get_current_user => sub { $self->_current_user },
     ); #TODO: cleanup?
 }
 

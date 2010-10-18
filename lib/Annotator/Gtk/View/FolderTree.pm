@@ -94,11 +94,10 @@ sub _on_folder_tree_selected {
         $parent = $model->iter_nth_child( $parent, $idx );
         push @parts, $model->get( $parent, 0 );
     }
+    $self->current_user( $parts[0] );
     my $folder = join '/', @parts;
     #$self->push_status( "Loading folder '$folder'" );
     $self->on_folder_selected->( $folder );
-
-    $self->current_user( $parts[0] );
 }
 
 __PACKAGE__->meta->make_immutable;

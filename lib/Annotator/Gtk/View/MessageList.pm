@@ -6,6 +6,13 @@ use MooseX::Types::Moose qw( CodeRef );
 use Gtk2;
 use Annotator::Gtk::View::Constants qw( :bool );
 
+use constant {
+    ML_TITLE   => 0,
+    ML_DATE    => 1,
+    ML_TEXT_ID => 2,
+    ML_SENDER  => 3,
+};
+
 extends 'Gtk2::TreeView';
 
 sub FOREIGNBUILDARGS { () }
@@ -17,7 +24,7 @@ has '_list_store' => (
 );
 
 sub _build__list_store {
-    Gtk2::ListStore->new( qw/ Glib::String Glib::String Glib::String / );
+    Gtk2::ListStore->new( qw/ Glib::String Glib::String Glib::String Glib::Boolean / );
 }
 
 sub BUILD {
@@ -29,7 +36,7 @@ sub BUILD {
     $subject_column->set_expand( TRUE );
     my $subject_renderer = Gtk2::CellRendererText->new;
     $subject_column->pack_start( $subject_renderer, FALSE );
-    $subject_column->add_attribute( $subject_renderer, text => 0 );
+    $subject_column->add_attribute( $subject_renderer, text => ML_TITLE );
     $self->append_column($subject_column);
 
     my $date_column = Gtk2::TreeViewColumn->new();
@@ -37,8 +44,16 @@ sub BUILD {
     $subject_column->set_max_width( 100 );
     my $date_renderer = Gtk2::CellRendererText->new;
     $date_column->pack_start( $date_renderer, FALSE );
-    $date_column->add_attribute( $date_renderer, text => 1 );
+    $date_column->add_attribute( $date_renderer, text => ML_DATE );
     $self->append_column($date_column);
+
+    my $sender_column = Gtk2::TreeViewColumn->new();
+    $sender_column->set_title("Out?");
+    $subject_column->set_max_width( 100 );
+    my $sender_renderer = Gtk2::CellRendererToggle->new;
+    $sender_column->pack_start( $sender_renderer, FALSE );
+    $sender_column->add_attribute( $sender_renderer, active => ML_SENDER );
+    $self->append_column($sender_column);
 
     $self->set_size_request( -1, 100 );
 
@@ -48,7 +63,7 @@ sub BUILD {
 sub _on_message_selected {
     my ( $self, $message_list, $path ) = @_;
     my $iter = $message_list->get_model->get_iter( $path );
-    my $mid = $message_list->get_model->get( $iter, 2 );
+    my $mid = $message_list->get_model->get( $iter, ML_TEXT_ID );
     $self->on_message_selected->( $mid );
 }
 
@@ -58,22 +73,34 @@ has 'on_message_selected' => (
     default => sub { sub { } },
 );
 
+has 'get_current_user' => (
+    is => 'ro',
+    isa => CodeRef,
+    required => 1,
+);
+
 has 'current_messages' => (
     is => 'rw',
     trigger => \&_populate_message_list,
 );
 
+use List::Util 'first';
+
 sub _populate_message_list {
     my ( $self, $msg_cursor ) = @_;
     my $model = $self->_list_store;
     $model->clear;
+
+    my ( $username ) = ( $self->get_current_user->() =~ /^(\w+)-/ );
+    my $re = qr/\b$username\b/io;
     while ( my $message = $msg_cursor->next ) {
         my $iter = $model->append;
         $model->set(
             $iter,
-            0 => $message->title,
-            1 => $message->date->strftime('%F %T'),
-            2 => $message->text_id
+            ML_TITLE,   $message->title,
+            ML_DATE,    $message->date->strftime('%F %T'),
+            ML_TEXT_ID, $message->text_id,
+            ML_SENDER,  ( $message->sender =~ $re ? TRUE : FALSE ) 
         );
     }
 }
