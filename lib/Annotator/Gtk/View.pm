@@ -345,13 +345,12 @@ sub _current_user {
 }
 
 sub _get_recipient_names {
-    my ( $email, $field, $current_user ) = @_;
-    my @addresses = Mail::Address->parse( $email->header( $field ) );
+    my ( $addresses, $current_user ) = @_;
     my ( $username ) = ( $current_user =~ /^(\w+)-/ );
     my $re = qr/\b$username\b/io;
     return
         map { $_ =~ $re ? "<b>$_</b>" : $_ }
-        map { $_->name || $_->user } @addresses;
+        map { $_->name || $_->user } @$addresses;
 }
 
 sub _parse_recipients {
@@ -359,10 +358,16 @@ sub _parse_recipients {
     use Email::Simple;
     use Mail::Address;
 
-    my $email = Email::Simple->new( $message->metadata );
-    $self->_from_list->set_markup( join( ', ', _get_recipient_names( $email, "From", $self->_current_user ) ) );
-    $self->_to_list->set_markup( join ', ', _get_recipient_names( $email, "To", $self->_current_user ) );
-    $self->_cc_list->set_markup( join ', ', _get_recipient_names( $email, "Cc", $self->_current_user ) );
+    use Annotator::Gtk::Util;
+
+    my ( $from, $to, $cc ) =
+        Annotator::Gtk::Util::get_addresses_from_fields(
+            $message->metadata,
+            qw( From To Cc )
+        );
+    $self->_from_list->set_markup( join( ', ', _get_recipient_names( $from, $self->_current_user ) ) );
+    $self->_to_list->set_markup( join ', ', _get_recipient_names( $to, $self->_current_user ) );
+    $self->_cc_list->set_markup( join ', ', _get_recipient_names( $cc, $self->_current_user ) );
 }
 
 sub _load_message {
