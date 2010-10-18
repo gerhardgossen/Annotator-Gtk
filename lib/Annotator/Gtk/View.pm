@@ -340,25 +340,31 @@ has 'current_message' => (
 );
 
 sub _get_recipient_names {
-    my ( $email, $field ) = @_;
+    my ( $email, $field, $current_user ) = @_;
     my @addresses = Mail::Address->parse( $email->header( $field ) );
-    return map { $_->name || $_->user } @addresses;
+    my ( $username ) = ( $current_user =~ /^(\w+)-/ );
+    my $re = qr/\b$username\b/io;
+    return
+        map { $_ =~ $re ? "<b>$_</b>" : $_ }
+        map { $_->name || $_->user } @addresses;
 }
 
 sub _parse_recipients {
-    my ( $self, $message ) = @_;
+    my ( $self, $message, $current_user ) = @_;
     use Email::Simple;
     use Mail::Address;
 
     my $email = Email::Simple->new( $message->metadata );
-    $self->_to_list->set_text( join ', ', _get_recipient_names( $email, "To" ) );
-    $self->_cc_list->set_text( join ', ', _get_recipient_names( $email, "Cc" ) );
+    $self->_from_list->set_markup( join( ', ', _get_recipient_names( $email, "From", $current_user ) ) );
+    $self->_to_list->set_markup( join ', ', _get_recipient_names( $email, "To", $current_user ) );
+    $self->_cc_list->set_markup( join ', ', _get_recipient_names( $email, "Cc", $current_user ) );
 }
 
 sub _load_message {
     my ( $self, $message, $old_message ) = @_;
 
-    $self->_parse_recipients( $message );
+    my $current_user = $self->foldertree->current_user;
+    $self->_parse_recipients( $message, $current_user );
 
     my $message_view = $self->message_view;
     $message_view->get_buffer->set_text( $message->contents );
@@ -451,7 +457,7 @@ sub _build_message_annotations {
     return $ma;
 }
 
-has [ '_to_list', '_cc_list' ] => (
+has [ '_from_list', '_to_list', '_cc_list' ] => (
     is => 'ro',
     isa => 'Gtk2::Label',
     builder => '_build_address_label',
@@ -476,15 +482,19 @@ sub BUILD {
     my $vbox = Gtk2::VBox->new(FALSE, 0);
     $self->add($vbox);
 
-    my $addresses = Gtk2::Table->new( 2, 2, FALSE );
+    my $addresses = Gtk2::Table->new( 2, 3, FALSE );
+    my $from_label = Gtk2::Label->new( "From:" );
+    $from_label->set_alignment( 0.0, 0.5 );
     my $to_label = Gtk2::Label->new( "To:" );
     $to_label->set_alignment( 0.0, 0.5 );
     my $cc_label = Gtk2::Label->new( "CC:" );
     $cc_label->set_alignment( 0.0, 0.5 );
-    $addresses->attach_defaults( $to_label, 0, 1, 0, 1 );
-    $addresses->attach( $self->_to_list, 1, 2, 0, 1, [ 'expand', 'fill' ], [], 5, 0 );
-    $addresses->attach_defaults( $cc_label, 0, 1, 1, 2 );
-    $addresses->attach( $self->_cc_list, 1, 2, 1, 2, [ 'expand', 'fill' ], [], 5, 0 );
+    $addresses->attach_defaults( $from_label, 0, 1, 0, 1 );
+    $addresses->attach( $self->_from_list, 1, 2, 0, 1, [ 'expand', 'fill' ], [], 5, 0 );
+    $addresses->attach_defaults( $to_label, 0, 1, 1, 2 );
+    $addresses->attach( $self->_to_list, 1, 2, 1, 2, [ 'expand', 'fill' ], [], 5, 0 );
+    $addresses->attach_defaults( $cc_label, 0, 1, 2, 3 );
+    $addresses->attach( $self->_cc_list, 1, 2, 2, 3, [ 'expand', 'fill' ], [], 5, 0 );
 
     my $content_box = Gtk2::HPaned->new;
     $content_box->pack1( _wrap_in_scrolled_window( $self->foldertree ), FALSE, TRUE );

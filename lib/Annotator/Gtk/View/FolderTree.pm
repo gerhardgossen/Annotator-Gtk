@@ -2,7 +2,7 @@ package Annotator::Gtk::View::FolderTree;
 
 use Moose;
 use MooseX::NonMoose;
-use MooseX::Types::Moose qw( CodeRef HashRef );
+use MooseX::Types::Moose qw( CodeRef HashRef Str );
 use Annotator::Gtk::View::Constants qw( :bool );
 use Gtk2;
 
@@ -20,6 +20,12 @@ has 'directories' => (
     is => 'ro',
     required => 1,
     isa => HashRef[ HashRef ],
+);
+
+has 'current_user' => (
+    is => 'rw',
+    isa => Str,
+    default => '',
 );
 
 has '_folder_store' => (
@@ -91,6 +97,8 @@ sub _on_folder_tree_selected {
     my $folder = join '/', @parts;
     #$self->push_status( "Loading folder '$folder'" );
     $self->on_folder_selected->( $folder );
+
+    $self->current_user( $parts[0] );
 }
 
 __PACKAGE__->meta->make_immutable;
