@@ -339,6 +339,11 @@ has 'current_message' => (
     trigger => \&_load_message,
 );
 
+sub _current_user {
+    my $self = shift;
+    return $self->foldertree->current_user;
+}
+
 sub _get_recipient_names {
     my ( $email, $field, $current_user ) = @_;
     my @addresses = Mail::Address->parse( $email->header( $field ) );
@@ -350,21 +355,20 @@ sub _get_recipient_names {
 }
 
 sub _parse_recipients {
-    my ( $self, $message, $current_user ) = @_;
+    my ( $self, $message ) = @_;
     use Email::Simple;
     use Mail::Address;
 
     my $email = Email::Simple->new( $message->metadata );
-    $self->_from_list->set_markup( join( ', ', _get_recipient_names( $email, "From", $current_user ) ) );
-    $self->_to_list->set_markup( join ', ', _get_recipient_names( $email, "To", $current_user ) );
-    $self->_cc_list->set_markup( join ', ', _get_recipient_names( $email, "Cc", $current_user ) );
+    $self->_from_list->set_markup( join( ', ', _get_recipient_names( $email, "From", $self->_current_user ) ) );
+    $self->_to_list->set_markup( join ', ', _get_recipient_names( $email, "To", $self->_current_user ) );
+    $self->_cc_list->set_markup( join ', ', _get_recipient_names( $email, "Cc", $self->_current_user ) );
 }
 
 sub _load_message {
     my ( $self, $message, $old_message ) = @_;
 
-    my $current_user = $self->foldertree->current_user;
-    $self->_parse_recipients( $message, $current_user );
+    $self->_parse_recipients( $message );
 
     my $message_view = $self->message_view;
     $message_view->get_buffer->set_text( $message->contents );
