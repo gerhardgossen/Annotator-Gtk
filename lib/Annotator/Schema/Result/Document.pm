@@ -24,6 +24,10 @@ __PACKAGE__->add_columns(
         is_nullable => 1,
         is_serializable => 1,
     },
+    sender => {
+        data_type => 'varchar',
+        is_nullable => 1,
+    },
     text_id => {
         data_type => 'varchar',
         is_foreign_key => 1,
