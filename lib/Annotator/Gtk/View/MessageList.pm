@@ -49,7 +49,6 @@ sub BUILD {
 
     my $sender_column = Gtk2::TreeViewColumn->new();
     $sender_column->set_title("Out?");
-    $subject_column->set_max_width( 100 );
     my $sender_renderer = Gtk2::CellRendererToggle->new;
     $sender_column->pack_start( $sender_renderer, FALSE );
     $sender_column->add_attribute( $sender_renderer, active => ML_SENDER );

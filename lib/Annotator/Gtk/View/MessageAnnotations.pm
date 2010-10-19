@@ -183,15 +183,21 @@ sub BUILD {
 
     $self->set_model( $self->model );
 
+    $self->set_size_request( 250, -1 );
+
     my ( $start_renderer, $end_renderer, $name_renderer, $value_renderer )
         = map { Gtk2::CellRendererText->new } 1..4;
 
     my $name_column = Gtk2::TreeViewColumn->new_with_attributes( "Name", $name_renderer, text => MA_NAME );
     $name_column->set_expand( TRUE );
+    $name_column->set_sizing( 'fixed' );
+    $name_column->set_fixed_width( 70 );
     $self->append_column( $name_column );
 
     my $value_column = Gtk2::TreeViewColumn->new_with_attributes( "Value", $value_renderer, text => MA_VALUE );
     $value_column->set_expand( TRUE );
+    $value_column->set_sizing( 'fixed' );
+    $value_column->set_fixed_width( 70 );
     $self->append_column( $value_column );
 
     my $start_column = Gtk2::TreeViewColumn->new_with_attributes( "Start", $start_renderer, text => MA_START );

@@ -157,7 +157,7 @@ has 'message_view' => (
 sub _build_message_view {
     my $self = shift;
     my $textview = Gtk2::TextView->new;
-    $textview->set_size_request( 400, 200 );
+    $textview->set_size_request( -1, 200 );
     $textview->set_wrap_mode( "word" );
     $textview->set_editable( FALSE );
     my $buffer = $textview->get_buffer;
@@ -477,7 +477,7 @@ has [ '_from_list', '_to_list', '_cc_list' ] => (
 sub _build_address_label {
     my $label = Gtk2::Label->new;
     $label->set_alignment( 0.0, 0.5);
-    $label->set_width_chars( 80 );
+    $label->set_width_chars( 40 );
     $label->set_ellipsize( 'end' );
     $label
 }
@@ -499,12 +499,12 @@ sub BUILD {
     $to_label->set_alignment( 0.0, 0.5 );
     my $cc_label = Gtk2::Label->new( "CC:" );
     $cc_label->set_alignment( 0.0, 0.5 );
-    $addresses->attach_defaults( $from_label, 0, 1, 0, 1 );
-    $addresses->attach( $self->_from_list, 1, 2, 0, 1, [ 'expand', 'fill' ], [], 5, 0 );
-    $addresses->attach_defaults( $to_label, 0, 1, 1, 2 );
-    $addresses->attach( $self->_to_list, 1, 2, 1, 2, [ 'expand', 'fill' ], [], 5, 0 );
-    $addresses->attach_defaults( $cc_label, 0, 1, 2, 3 );
-    $addresses->attach( $self->_cc_list, 1, 2, 2, 3, [ 'expand', 'fill' ], [], 5, 0 );
+    $addresses->attach( $from_label, 0, 1, 0, 1, [], [], 0, 0 );
+    $addresses->attach( $self->_from_list, 1, 2, 0, 1, [ 'expand', 'fill' ], ['fill' ], 5, 0 );
+    $addresses->attach( $to_label, 0, 1, 1, 2, [], [], 0, 0 );
+    $addresses->attach( $self->_to_list, 1, 2, 1, 2, [ 'expand', 'fill' ], [ 'fill' ], 5, 0 );
+    $addresses->attach( $cc_label, 0, 1, 2, 3, [], [], 0, 0 );
+    $addresses->attach( $self->_cc_list, 1, 2, 2, 3, [ 'expand', 'fill' ], [ 'fill' ], 5, 0 );
 
     my $content_box = Gtk2::HPaned->new;
     $content_box->pack1( _wrap_in_scrolled_window( $self->foldertree ), FALSE, TRUE );
@@ -519,7 +519,7 @@ sub BUILD {
     my $rhs_panel = Gtk2::VBox->new;
     $rhs_panel->pack_start( $self->annotation_sets, TRUE, TRUE, 0 );
     $rhs_panel->pack_end( $self->message_annotations, TRUE, TRUE, 0 );
-    $rhs->pack2( $rhs_panel, TRUE, TRUE );
+    $rhs->pack2( $rhs_panel, FALSE, TRUE );
 
     $vbox->pack_start( $self->menubar, FALSE, FALSE, 0 );
     $vbox->pack_start( $content_box, TRUE, TRUE, 0 );
