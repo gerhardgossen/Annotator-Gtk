@@ -358,7 +358,7 @@ sub _current_user {
 sub _get_recipient_names {
     my ( $addresses, $current_user ) = @_;
     my ( $username ) = ( $current_user =~ /^(\w+)-/ );
-    my $re = qr/\b$username\b/io;
+    my $re = qr/\b$username\b/i;
     return
         map { $_ =~ $re ? "<b>$_</b>" : $_ }
         map { $_->name || $_->user } @$addresses;
