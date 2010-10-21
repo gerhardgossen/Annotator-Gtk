@@ -192,12 +192,14 @@ sub BUILD {
     $name_column->set_expand( TRUE );
     $name_column->set_sizing( 'fixed' );
     $name_column->set_fixed_width( 70 );
+    $name_column->set_resizable( TRUE );
     $self->append_column( $name_column );
 
     my $value_column = Gtk2::TreeViewColumn->new_with_attributes( "Value", $value_renderer, text => MA_VALUE );
     $value_column->set_expand( TRUE );
     $value_column->set_sizing( 'fixed' );
     $value_column->set_fixed_width( 70 );
+    $value_column->set_resizable( TRUE );
     $self->append_column( $value_column );
 
     my $start_column = Gtk2::TreeViewColumn->new_with_attributes( "Start", $start_renderer, text => MA_START );

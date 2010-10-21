@@ -518,7 +518,7 @@ sub BUILD {
 
     my $rhs_panel = Gtk2::VBox->new;
     $rhs_panel->pack_start( $self->annotation_sets, TRUE, TRUE, 0 );
-    $rhs_panel->pack_end( $self->message_annotations, TRUE, TRUE, 0 );
+    $rhs_panel->pack_end( _wrap_in_scrolled_window( $self->message_annotations ), TRUE, TRUE, 0 );
     $rhs->pack2( $rhs_panel, FALSE, TRUE );
 
     $vbox->pack_start( $self->menubar, FALSE, FALSE, 0 );
