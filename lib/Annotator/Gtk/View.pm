@@ -59,6 +59,14 @@ sub push_status {
     my ( $self, $msg ) = @_;
     $self->_statusbar->push( 0, $msg );
 }
+sub _next_random {
+    my ( $self, $action ) = @_;
+
+    my $doc = $self->model->resultset("Document")->rand->single;
+
+    $self->foldertree->select_folder( $doc->path );
+    $self->message_list->select_message( $doc->text_id );
+}
 
 has 'menubar' => (
     is => 'ro',
@@ -71,13 +79,15 @@ sub _build_menubar {
     my @actions_plain = (
             # name,       stock id,      label,      accelerator,  tooltip,               callback
             [ "FileMenu", undef,         "_File",    undef,        undef,                 undef,   ],
-            [ "Connect",  'gtk-connect', "_Connect", "<control>N", "Connect to database", undef    ],
+            [ "Connect",  'gtk-connect', "_Connect", undef, "Connect to database", undef    ],
             [ "Quit",     'gtk-quit',    "_Quit",    "<control>Q", undef,                 sub { Gtk2->main_quit } ],
+            [ "Random",   'gtk-media-forward', "_Random", "<control>N", "Next random message", sub{ $self->_next_random(@_) } ],
     );
     my $ui_basic = "<ui>
       <menubar name='MenuBar'>
         <menu action='FileMenu'>
          <menuitem action='Connect' position='top'/>
+         <menuitem action='Random' position='top'/>
          <separator/>
          <menuitem action='Quit'/>
         </menu>

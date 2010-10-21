@@ -3,6 +3,8 @@ package Annotator::Schema::ResultSet::Document;
 use Moose;
 extends 'DBIx::Class::ResultSet';
 
+__PACKAGE__->load_components('Helper::ResultSet::Random');
+
 has directories => (
     is => 'ro',
     isa => 'HashRef',

@@ -83,6 +83,26 @@ has 'current_messages' => (
     trigger => \&_populate_message_list,
 );
 
+sub select_message{
+    my ( $self, $text_id ) = @_;
+
+    my $model = $self->get_model;
+    my $iter = $model->get_iter_first;
+
+    while ( $iter ) {
+        last if $model->get( $iter, ML_TEXT_ID ) eq $text_id;
+
+        $iter = $model->iter_next( $iter );
+    }
+
+    die "Message '$text_id' does not exist" unless $iter;
+
+    my $treepath = $model->get_path( $iter );
+    $self->scroll_to_cell( $treepath, undef, TRUE, 0.5, 0.0 );
+    $self->set_cursor( $treepath, undef, FALSE );
+    $self->_on_message_selected( $self, $treepath );
+}
+
 use List::Util 'first';
 
 sub _populate_message_list {

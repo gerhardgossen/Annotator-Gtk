@@ -100,6 +100,32 @@ sub _on_folder_tree_selected {
     $self->on_folder_selected->( $folder );
 }
 
+sub select_folder {
+    my ( $self, $pathname ) = @_;
+    my @path_parts = split '/', $pathname;
+    my $model = $self->get_model;
+    my $iter = $model->get_iter_first;
+
+    while ( $iter && @path_parts ) {
+        if ( $model->get( $iter, 0 ) eq $path_parts[0] ) {
+            shift @path_parts;
+            if ( @path_parts ) {
+                $iter = $model->iter_children( $iter );
+            }
+        } else {
+            $iter = $model->iter_next( $iter );
+        }
+    }
+
+    die "Path '$pathname' does not exist" unless $iter;
+
+    my $treepath = $model->get_path( $iter );
+    $self->expand_to_path( $treepath );
+    $self->scroll_to_cell( $treepath, undef, TRUE, 0.5, 0.0 );
+    $self->set_cursor( $treepath, undef, FALSE );
+    $self->_on_folder_tree_selected( $self, $treepath, undef );
+}
+
 __PACKAGE__->meta->make_immutable;
 
 1;
