@@ -30,10 +30,12 @@ sub _build__list_store {
 sub BUILD {
     my $self = shift;
     $self->set_model( $self->_list_store );
+    $self->set_fixed_height_mode( TRUE );
 
     my $subject_column = Gtk2::TreeViewColumn->new();
     $subject_column->set_title("Subject");
     $subject_column->set_expand( TRUE );
+    $subject_column->set_sizing( 'fixed' );
     my $subject_renderer = Gtk2::CellRendererText->new;
     $subject_column->pack_start( $subject_renderer, FALSE );
     $subject_column->add_attribute( $subject_renderer, text => ML_TITLE );
@@ -41,7 +43,8 @@ sub BUILD {
 
     my $date_column = Gtk2::TreeViewColumn->new();
     $date_column->set_title("Sent");
-    $subject_column->set_max_width( 100 );
+    $date_column->set_fixed_width( 100 );
+    $date_column->set_sizing( 'fixed' );
     my $date_renderer = Gtk2::CellRendererText->new;
     $date_column->pack_start( $date_renderer, FALSE );
     $date_column->add_attribute( $date_renderer, text => ML_DATE );
@@ -49,6 +52,8 @@ sub BUILD {
 
     my $sender_column = Gtk2::TreeViewColumn->new();
     $sender_column->set_title("Out?");
+    $sender_column->set_sizing( 'fixed' );
+    $sender_column->set_fixed_width( 20 );
     my $sender_renderer = Gtk2::CellRendererToggle->new;
     $sender_column->pack_start( $sender_renderer, FALSE );
     $sender_column->add_attribute( $sender_renderer, active => ML_SENDER );
@@ -110,16 +115,18 @@ sub _populate_message_list {
     my $model = $self->_list_store;
     $model->clear;
 
+    $msg_cursor->result_class('DBIx::Class::ResultClass::HashRefInflator');
+
     my ( $username ) = ( $self->get_current_user->() =~ /^(\w+)-/ );
     my $re = qr/\b$username\b/io;
     while ( my $message = $msg_cursor->next ) {
         my $iter = $model->append;
         $model->set(
             $iter,
-            ML_TITLE,   $message->title,
-            ML_DATE,    $message->date->strftime('%F %T'),
-            ML_TEXT_ID, $message->text_id,
-            ML_SENDER,  ( $message->sender =~ $re ? TRUE : FALSE ) 
+            ML_TITLE,   $message->{title},
+            ML_DATE,    $message->{date},
+            ML_TEXT_ID, $message->{text_id},
+            ML_SENDER,  ( $message->{sender} =~ $re ? TRUE : FALSE ) 
         );
     }
 }
