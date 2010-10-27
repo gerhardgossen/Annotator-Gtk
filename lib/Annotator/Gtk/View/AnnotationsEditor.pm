@@ -201,6 +201,8 @@ sub _remove_annotation_row {
         $table->resize( $table->get( 'n-rows' ) - 1, $table->get( 'n-columns' ) );
     }
     $table->show_all;
+    my $size = $self->size_request;
+    $self->resize( $size->width, $size->height );
 
     $self->_notify( annotation_removed => $self->annotations->[ $row ] );
     splice @{ $self->annotations }, $row, 1;
@@ -269,7 +271,13 @@ sub show {
     $self->_notification_enabled( TRUE );
 
     $self->next::method;
-    $self->move( $args{x}, $args{y} );
+
+    use List::Util qw(min);
+    my $screen = $self->get_screen;
+    my ( $width, $height ) = $self->get_size;
+    my $x = min( $args{x}, $screen->get_width - $width );
+    my $y = min( $args{y}, $screen->get_height - $height );
+    $self->move( $x, $y );
 
 }
 
