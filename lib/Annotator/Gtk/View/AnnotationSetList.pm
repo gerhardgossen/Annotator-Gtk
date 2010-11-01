@@ -158,7 +158,7 @@ sub load_annotation_set {
         my $color = $tag->get( 'background-gdk' )->to_string;
         my $child_iter = $store->append( $iter );
         $store->set( $child_iter,
-            AL_NAME  , $fullname, #$type->name,
+            AL_NAME  , $type->name,
             AL_ID    , $type->annotationtype_id,
             AL_COLOR , $color,
             AL_IS_TAG, $type->is_tag
