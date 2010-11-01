@@ -59,7 +59,7 @@ sub get_sub_directories { # TODO: bug assigns wrong count to top-level directori
 
 sub get_folder_messages {
     my ( $self, $path ) = @_;
-    return $self->search_rs( { path => $path } );
+    return $self->search_rs( { path => $path }, { order_by => 'date' } );
 }
 
 1;
