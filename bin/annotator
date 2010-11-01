@@ -3,6 +3,9 @@
 use warnings;
 use strict;
 
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
 use Annotator::Schema;
 use Annotator::Gtk::View;
 use Annotator::Gtk::Controller;

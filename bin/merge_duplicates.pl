@@ -5,6 +5,9 @@ use strict;
 use v5.10;
 use List::MoreUtils qw( indexes );
 
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
 use Annotator::Schema;
 
 sub mesh;
