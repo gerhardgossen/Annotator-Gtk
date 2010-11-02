@@ -170,6 +170,7 @@ sub _build_message_view {
     $textview->set_size_request( -1, 200 );
     $textview->set_wrap_mode( "word" );
     $textview->set_editable( FALSE );
+    $textview->set_left_margin( 5 );
     my $buffer = $textview->get_buffer;
 
     $self->add_events( [ 'button-release-mask', 'button-press-mask' ] );
