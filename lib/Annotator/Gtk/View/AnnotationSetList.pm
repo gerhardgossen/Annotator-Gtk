@@ -43,11 +43,21 @@ has 'load_window' => (
 );
 
 sub _build_load_window {
+    my $self = shift;
     my $window = Gtk2::Dialog->new;
     $window->set_title( "Load Annotation Set" );
     $window->add_button( 'gtk-open', 'apply' );
     $window->add_button( 'gtk-cancel', 'cancel' );
     $window->set_border_width( 0 );
+    $window->get_content_area->pack_start( $self->set_list_view, TRUE, TRUE, 10 );
+
+    $window->signal_connect( response => sub {
+        my ( $window, $response ) = @_;
+        if ( $response eq 'apply' ) {
+            $self->load_annotation_set( $self->selected_set );
+        }
+        $window->hide;
+    } );
     return $window;
 }
 
@@ -102,15 +112,6 @@ sub selected_set {
 
 sub _show_load_window {
     my $self = shift;
-    $self->load_window->get_content_area->pack_start( $self->set_list_view, TRUE, TRUE, 10 );
-
-    $self->load_window->signal_connect( response => sub {
-        my ( $window, $response ) = @_;
-        if ( $response eq 'apply' ) {
-            $self->load_annotation_set( $self->selected_set );
-        }
-        $window->hide;
-    } );
     $self->load_window->show_all;
 }
 
