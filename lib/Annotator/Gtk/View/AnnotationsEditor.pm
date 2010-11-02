@@ -292,7 +292,7 @@ sub reset {
         }
         my $table = $self->_annotations_table;
         foreach my $widget ( $table->get_children ) {
-            if ( $widget->isa( 'Gtk2::ComboBox' ) ) {
+            if ( $widget->isa( 'Gtk2::ComboBox' ) && $widget->get_model ) {
                 $widget->set_active( -1 );
             }
         }
