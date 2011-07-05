@@ -12,7 +12,7 @@ use Annotator::Schema;
 use Annotator::Gtk::View;
 use Annotator::Gtk::Controller;
 
-my $model = Annotator::Schema->connect( 'dbi:Pg:dbname=enron', 'enron', 'enron' );
+my $model = Annotator::Schema->connect( 'dbi:Pg:dbname=enron;host=localhost', 'enron', 'enron' );
 my $view = Annotator::Gtk::View->new(
     directories => $model->resultset('Document')->directories,
     model => $model,
