@@ -148,12 +148,15 @@ sub annotation_changed {
     my $annotation = $self->_current_message
         ->find_related( annotations => {
             annotation_id     => $annotation_id,
-        } )->update( {
+        } );
+    if ($annotation) {
+        $annotation->update( {
             annotationtype_id => $annotationtype_id,
             start_pos         => $start,
             end_pos           => $end,
             value             => $value,
         } );
+    }
 }
 
 sub annotation_removed {
