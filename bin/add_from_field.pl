@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+#PODNAME: add_from_field.pl
+
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 

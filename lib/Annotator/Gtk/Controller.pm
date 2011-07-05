@@ -51,7 +51,7 @@ sub setup {
 
     $self->_finished_setup(1);
 
-    $self->current_user( $self->model->resultset('Annotator')->search( name => 'gerhard' )->single ); # FIXME
+    $self->current_user( $self->model->resultset('Annotator')->search( { name => 'gerhard' } )->single ); # FIXME
 }
 
 sub run {

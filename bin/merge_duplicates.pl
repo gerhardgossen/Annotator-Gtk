@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+#PODNAME: merge_duplicates.pl
+
 use warnings;
 use strict;
 use v5.10;
